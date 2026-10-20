@@ -59,11 +59,14 @@
   gap: 10px;
 }
 
+/* Пока грузятся данные, список продуктов пуст, поэтому высота панели задана заранее.
+   Панель - контейнер запросов: в альбомной ориентации экран широкий, а сама панель узкая */
 .controls {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: 60dvh;
+  height: 60dvh;
   min-height: 0;
   padding: 14px;
 }
@@ -110,8 +113,9 @@
   outline-offset: 2px;
 }
 
+/* Ниже 0.6 подпись выключенного цвета не добирает контраста в тёмной теме */
 .chip-off {
-  opacity: 0.45;
+  opacity: 0.6;
   text-decoration: line-through;
 }
 
@@ -132,6 +136,7 @@
 }
 
 .mode {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -142,7 +147,7 @@
 }
 
 .help {
-  position: relative;
+  display: flex;
 }
 
 .help-btn {
@@ -157,18 +162,19 @@
   cursor: pointer;
 }
 
-.help-btn:hover, .help.open .help-btn {
+.help.open .help-btn {
   background: var(--surface-hover);
   color: var(--text);
 }
 
+/* Пузырёк занимает ширину панели: у кнопки справа он уходил за край экрана */
 .help-bubble {
   display: none;
   position: absolute;
   top: calc(100% + 6px);
+  left: 0;
   right: 0;
   z-index: 10;
-  width: min(300px, calc(100vw - 48px));
   padding: 12px 14px;
   border-radius: 12px;
   background: var(--text);
@@ -191,6 +197,11 @@
 }
 
 @media (hover: hover) {
+  .help-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+
   .help:hover .help-bubble {
     display: block;
   }
@@ -265,12 +276,12 @@
 /* Во весь экран: на телефоне Fullscreen API недоступен, поэтому прячем всё вокруг графа */
 .page.fullscreen {
   gap: 0;
-  padding: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 .page.fullscreen .topbar,
 .page.fullscreen .selected-row,
-.page.fullscreen .hidden-note,
+.page.fullscreen .note,
 .page.fullscreen .controls {
   display: none;
 }
@@ -326,9 +337,19 @@
   margin: 0;
 }
 
-.hidden-note {
+.note {
   flex-shrink: 0;
   padding: 0 6px;
+}
+
+.note-action {
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .graph-container {
@@ -355,14 +376,15 @@
   transform: scale(0.97);
 }
 
-@media (max-width: 340px) {
+/* В четыре колонки подписи цветов влезают только в панель шире 310px */
+@container (max-width: 310px) {
   .legend-items {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* Телефон в альбомной ориентации: панель сверху оставляла графу полоску в несколько десятков пикселей */
-@media (min-width: 900px), (orientation: landscape) and (min-width: 560px) {
+/* В альбомной ориентации панель уходит в столбец слева, и графу остаётся вся высота */
+@media (min-width: 760px), (orientation: landscape) and (min-width: 560px) {
   .workspace {
     flex-direction: row;
     gap: 16px;
@@ -371,17 +393,37 @@
   .controls {
     width: min(340px, 42vw);
     flex-shrink: 0;
-    max-height: none;
+    height: auto;
+  }
+}
+
+/* Невысокий экран: в панели на 60dvh внутреннему списку оставалось несколько пикселей, поэтому
+   панель прокручивается целиком, одним блоком, а кнопка сброса остаётся на виду */
+@media (max-height: 780px) {
+  .controls {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .products {
+    flex: none;
+  }
+
+  .product-list {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .clear-btn {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
   }
 }
 
 @media (min-width: 900px) {
   .page {
     gap: 12px;
-    padding: 16px;
-  }
-
-  .controls {
-    width: 340px;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   }
 }

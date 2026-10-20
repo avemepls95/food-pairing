@@ -10,11 +10,13 @@
 .tabs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
+/* Экран уже 375px: кнопка сортировки переезжает на свою строку, вкладкам остаётся вся ширина */
 .tabs .segmented {
-  flex: 1;
+  flex: 1 1 250px;
 }
 
 .tabs .segmented button {
@@ -42,6 +44,7 @@
 .sort {
   display: flex;
   align-items: center;
+  margin-left: auto;
   gap: 4px;
   min-height: 38px;
   padding: 0 8px;
@@ -69,7 +72,8 @@
   transition: box-shadow 0.15s, transform 0.15s;
 }
 
-.mix:active {
+/* Нажатие на кнопку карточки подсвечивает только саму кнопку */
+.mix:active:not(:has(.mix-actions:active)) {
   background: var(--surface-hover);
 }
 
@@ -105,35 +109,28 @@
   gap: 4px 10px;
 }
 
-/* Вкусы в строку: разделители не спорят с текстом */
+/* Неразрывный пробел после разделителя: при переносе он уходит на новую строку вместе со вкусом */
 .flavors span + span::before {
-  content: " · ";
-  color: var(--border-strong);
+  content: " ·\00a0";
+  color: var(--muted);
 }
 
 .flavors {
   flex: 1;
   margin: 0;
   min-width: 140px;
-  color: var(--muted);
   overflow-wrap: anywhere;
 }
 
-.mix-title.flavors {
-  color: var(--text);
-}
-
 .flavors.with-brands span + span::before {
-  content: " • ";
+  content: " •\00a0";
 }
 
 .brand {
   color: var(--muted);
-  opacity: 0.75;
 }
 
 .mix-title .brand {
-  opacity: 1;
   font-weight: 500;
 }
 
@@ -152,17 +149,25 @@
   border: 0;
   background: transparent;
   color: var(--star-off);
-  fill: currentColor;
   line-height: 0;
+}
+
+/* Незажжённая звезда - контур, зажжённая - заливка: оценка видна не только по цвету.
+   Класс .star стоит и на значке в карточке, и на кнопке в форме */
+.star, .star svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
 }
 
 .star.on {
   color: var(--star-on);
 }
 
-/* Только для незажжённых: иначе правило перебивает .star.on по специфичности */
-.stars.big .star:not(.on) {
-  color: var(--border-strong);
+.star.on, .star.on svg {
+  fill: currentColor;
+  stroke: none;
 }
 
 .stars.big {
@@ -222,13 +227,13 @@
 }
 
 .icon-btn:disabled {
-  color: var(--star-off);
+  color: var(--border-strong);
   cursor: default;
 }
 
 @media (hover: hover) {
   .mix .icon-btn {
-    opacity: 0.55;
+    opacity: 0.8;
   }
 }
 
@@ -276,6 +281,12 @@
   place-items: center;
 }
 
+/* Поле выбора файла спрятано, поэтому рамку фокуса рисуем на кнопке */
+.import:has(input:focus-visible) {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 .backup .hint {
   flex-basis: 100%;
 }
@@ -288,7 +299,8 @@
   max-width: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scroll-padding-bottom: 96px;
+  /* Поле, к которому браузер прокручивает форму сам, не должно уехать под липкую шапку или подвал */
+  scroll-padding: 72px 0 96px;
   max-height: 90dvh;
   padding: 0;
   border: 0;
@@ -301,6 +313,11 @@
 
 .dialog::backdrop {
   background: rgb(16 24 40 / 45%);
+}
+
+/* Открывая форму, браузер ставит фокус на само окно, и рамка обводит весь лист */
+.dialog:focus-visible {
+  outline: none;
 }
 
 /* Анимация только на появление: при закрытии форма пропадает из разметки сразу */
@@ -360,7 +377,8 @@
 
 .item-row {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  /* Названия вкусов длиннее названий брендов, поэтому вкусу места больше */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
   gap: 6px;
 }
 
@@ -388,6 +406,17 @@
 
 .problem {
   text-align: center;
+}
+
+/* В альбомной ориентации липкие шапка и подвал съедают почти всю высоту формы */
+@media (max-height: 500px) {
+  .dialog {
+    max-height: 100dvh;
+  }
+
+  .dialog-head, .dialog-actions {
+    position: static;
+  }
 }
 
 @media (min-width: 600px) {

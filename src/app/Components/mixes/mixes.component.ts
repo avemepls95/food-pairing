@@ -1,4 +1,5 @@
-import { Component, ElementRef, inject, OnInit, viewChild, viewChildren } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { afterNextRender, Component, ElementRef, inject, Injector, OnInit, viewChild, viewChildren } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NavComponent } from '../nav/nav.component';
 import { isMixValid, Mix, MixCategory, MIX_MIN_ITEMS, newMixId } from './mix';
@@ -6,14 +7,17 @@ import { MixesStore } from './mixes-store';
 
 @Component({
   selector: 'app-mixes',
-  imports: [FormsModule, NavComponent],
+  imports: [FormsModule, NavComponent, NgTemplateOutlet],
   templateUrl: './mixes.component.html',
-  styleUrls: ['./mixes.component.css']
+  styleUrl: './mixes.component.css'
 })
 export class MixesComponent implements OnInit {
   private store = inject(MixesStore);
+  private injector = inject(Injector);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
   private formDialog = viewChild.required<ElementRef<HTMLDialogElement>>('formDialog');
   private flavorInputs = viewChildren<ElementRef<HTMLInputElement>>('flavorInput');
+  private pressedOnBackdrop = false;
 
   readonly stars = [1, 2, 3, 4, 5];
   readonly minItems = MIX_MIN_ITEMS;
@@ -31,11 +35,11 @@ export class MixesComponent implements OnInit {
   }
 
   get visibleMixes(): Mix[] {
+    const newerFirst = (a: Mix, b: Mix) => b.updatedAt.localeCompare(a.updatedAt);
     const mixes = this.mixes.filter(mix => mix.category === this.tab);
     return this.tab === 'tried'
-      ? mixes.sort((a, b) => (this.bestFirst ? 1 : -1) * ((b.rating ?? 0) - (a.rating ?? 0))
-          || b.updatedAt.localeCompare(a.updatedAt))
-      : mixes.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      ? mixes.sort((a, b) => (this.bestFirst ? 1 : -1) * ((b.rating ?? 0) - (a.rating ?? 0)) || newerFirst(a, b))
+      : mixes.sort(newerFirst);
   }
 
   count(category: MixCategory): number {
@@ -71,26 +75,24 @@ export class MixesComponent implements OnInit {
   }
 
   /**
-   * У модального окна клик мимо содержимого приходит на сам dialog. Проверяем и нажатие, и отпускание:
-   * иначе выделение текста мышью, законченное над фоном, закроет форму.
+   * Нажатие мимо содержимого формы закрывает её. Отпускание кнопки мыши проверяем тоже,
+   * чтобы выделение текста, законченное над фоном, форму оставило открытой.
    */
   onDialogPointerDown(event: PointerEvent): void {
-    this.pressedOnBackdrop = event.target === this.formDialog().nativeElement;
+    this.pressedOnBackdrop = this.isOutsideForm(event);
   }
 
   onDialogClick(event: MouseEvent): void {
-    if (this.pressedOnBackdrop && event.target === this.formDialog().nativeElement) {
+    if (this.pressedOnBackdrop && this.isOutsideForm(event)) {
       this.closeDialog();
     }
+    this.pressedOnBackdrop = false;
   }
 
   addItem(): void {
     this.draft?.items.push({ flavor: '' });
     // Новая строка появляется под липким футером, поэтому переводим фокус на неё
-    queueMicrotask(() => {
-      const inputs = this.flavorInputs();
-      inputs[inputs.length - 1]?.nativeElement.focus();
-    });
+    afterNextRender(() => this.flavorInputs().at(-1)?.nativeElement.focus(), { injector: this.injector });
   }
 
   removeItem(index: number): void {
@@ -132,15 +134,21 @@ export class MixesComponent implements OnInit {
         .map(item => ({ brand: item.brand?.trim() || undefined, flavor: item.flavor.trim() }))
     });
     this.tab = draft.category;
+    // Класс снимаем по таймеру, чтобы подсветка не повторилась при возврате на вкладку
     this.justSavedId = draft.id;
+    setTimeout(() => (this.justSavedId = ''), 1500);
     this.mixes = this.store.list();
     this.closeDialog();
+    // При сортировке по оценке микс может уехать далеко от начала списка
+    afterNextRender(() => this.host.nativeElement.querySelector('.just-saved')?.scrollIntoView({ block: 'nearest' }),
+      { injector: this.injector });
   }
 
   removeMix(mix: Mix): void {
     if (confirm(`Удалить микс "${this.title(mix)}"?`)) {
       this.store.remove(mix.id);
       this.mixes = this.store.list();
+      this.status = '';
     }
   }
 
@@ -168,20 +176,28 @@ export class MixesComponent implements OnInit {
 
     try {
       const { mixes, skipped } = this.store.parseBackup(await file.text());
-      const skippedNote = skipped ? `, записей не по правилам: ${skipped}` : '';
-      if (confirm(`Заменить текущий список (${this.mixes.length}) на миксы из файла (${mixes.length}${skippedNote})?`)) {
+      const skippedNote = skipped
+        ? `\nПропущено записей: ${skipped}. В них меньше двух вкусов или нет оценки.`
+        : '';
+      if (confirm(`Заменить текущий список (${this.mixes.length}) на миксы из файла (${mixes.length})?${skippedNote}`)) {
         this.store.replaceAll(mixes);
         this.mixes = this.store.list();
+        if (!this.count(this.tab)) {
+          this.tab = this.tab === 'tried' ? 'planned' : 'tried';
+        }
         this.status = `Загружено миксов: ${mixes.length}`;
       }
     } catch (error) {
-      this.status = `Не удалось прочитать файл: ${(error as Error).message}`;
+      this.status = (error as Error).message;
     }
   }
 
-  private pressedOnBackdrop = false;
+  private isOutsideForm(event: MouseEvent): boolean {
+    const box = this.formDialog().nativeElement.getBoundingClientRect();
+    return event.clientX < box.left || event.clientX > box.right
+      || event.clientY < box.top || event.clientY > box.bottom;
+  }
 
-  // Модальное окно: пока форма открыта, до остальных миксов не добраться
   private openDialog(draft: Mix): void {
     this.status = '';
     this.pressedOnBackdrop = false;

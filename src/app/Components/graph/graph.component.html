@@ -17,12 +17,17 @@
     </button>
   </header>
 
-  @if (hiddenByColor) {
-    <p class="hint hidden-note">Скрыто фильтром по цвету: {{ hiddenByColor }}</p>
+  @if (note) {
+    <p class="hint note" role="status">
+      {{ note }}
+      @if (canShowHidden) {
+        <button type="button" class="note-action" (click)="showAllLevels()">показать все</button>
+      }
+    </p>
   }
 
   @if (selectedProducts.length) {
-    <div class="selected-row" aria-label="Выбранные продукты">
+    <div class="selected-row" role="group" aria-label="Выбранные продукты">
       @for (product of selectedProducts; track product) {
         <button type="button" class="selected-chip" [attr.aria-label]="'Убрать ' + product"
                 (click)="toggleProductSelection(product)">
@@ -63,12 +68,12 @@
 
       <section class="mode">
         <div class="segmented" role="group" aria-label="Режим">
-          <button type="button" [class.active]="settings.mode === 'extended'"
-                  [attr.aria-pressed]="settings.mode === 'extended'" (click)="setMode('extended')">
+          <button type="button" [class.active]="mode === 'extended'"
+                  [attr.aria-pressed]="mode === 'extended'" (click)="setMode('extended')">
             Расширенный
           </button>
-          <button type="button" [class.active]="settings.mode === 'strict'"
-                  [attr.aria-pressed]="settings.mode === 'strict'" (click)="setMode('strict')">
+          <button type="button" [class.active]="mode === 'strict'"
+                  [attr.aria-pressed]="mode === 'strict'" (click)="setMode('strict')">
             Точный
           </button>
         </div>
@@ -126,15 +131,16 @@
     </aside>
 
     <main class="graph-card card">
-      <div id="graph-container" #graphContainer class="graph-container"></div>
+      <div #graphContainer class="graph-container"></div>
       @if (loadError) {
         <div class="graph-empty">
           <p>{{ loadError }}</p>
           <button type="button" class="btn" (click)="loadData()">Повторить</button>
         </div>
       }
-      @if (!graphEmpty) {
+      @if (!loadError) {
         <div class="graph-tools">
+          <!-- Выход из полного экрана остаётся доступен и на пустом графе -->
           <button type="button" class="tool-btn" [attr.aria-label]="fullscreen ? 'Свернуть граф' : 'Граф во весь экран'"
                   [title]="fullscreen ? 'Свернуть' : 'Во весь экран'" (click)="toggleFullscreen()">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -146,14 +152,16 @@
               }
             </svg>
           </button>
-          <button type="button" class="tool-btn" aria-label="Вписать граф в экран" title="Вписать в экран"
-                  (click)="fitToView()">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
-              <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>
-            </svg>
-          </button>
+          @if (!graphEmpty) {
+            <button type="button" class="tool-btn" aria-label="Вписать граф в экран" title="Вписать в экран"
+                    (click)="fitToView()">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>
+              </svg>
+            </button>
+          }
         </div>
       }
       @if (graphEmpty) {

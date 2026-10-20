@@ -1,11 +1,10 @@
 {
   "name": "Сочетания вкусов",
   "short_name": "Вкусы",
-  "description": "Граф сочетаемости вкусов и список своих миксов",
+  "description": "Граф сочетаемости вкусов и список своих миксов с оценками",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#14161a",
   "theme_color": "#14161a",
   "lang": "ru",

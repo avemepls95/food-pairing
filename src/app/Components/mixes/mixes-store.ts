@@ -55,13 +55,18 @@ export class MixesStore {
   }
 
   /**
-   * Разбирает файл резервной копии. Бросает исключение, если это не копия миксов.
+   * Разбирает файл резервной копии. Текст исключения показываем пользователю.
    * Записи, не прошедшие правила (меньше двух вкусов, "попробовал" без оценки), в список не попадают.
    */
   parseBackup(json: string): ParsedBackup {
-    const backup = JSON.parse(json) as Backup;
+    let backup: Backup;
+    try {
+      backup = JSON.parse(json) as Backup;
+    } catch {
+      throw new Error('Файл не похож на копию миксов');
+    }
     if (!backup || !Array.isArray(backup.mixes)) {
-      throw new Error('В файле нет списка миксов');
+      throw new Error('Файл не похож на копию миксов');
     }
 
     const ids = new Set<string>();
@@ -75,24 +80,21 @@ export class MixesStore {
 
   /** Файл мог быть собран чем угодно, поэтому приводим типы и выбрасываем мусор */
   private normalize(mix: Mix, usedIds: Set<string>): Mix {
-    if (!Array.isArray(mix?.items)) {
-      throw new Error('В файле испорчен состав микса');
-    }
-
-    const category: MixCategory = mix.category === 'planned' ? 'planned' : 'tried';
-    const rating = Math.round(Number(mix.rating));
-    const id = typeof mix.id === 'string' && !usedIds.has(mix.id) ? mix.id : newMixId();
+    const items = Array.isArray(mix?.items) ? mix.items : [];
+    const category: MixCategory = mix?.category === 'planned' ? 'planned' : 'tried';
+    const rating = Math.round(Number(mix?.rating));
+    const id = typeof mix?.id === 'string' && !usedIds.has(mix.id) ? mix.id : newMixId();
     usedIds.add(id);
 
     return {
       id,
-      name: asText(mix.name),
-      items: mix.items
+      name: asText(mix?.name),
+      items: items
         .map((item: MixItem) => ({ brand: asText(item?.brand), flavor: asText(item?.flavor) ?? '' }))
         .filter(item => item.flavor),
       rating: category === 'tried' && rating >= 1 && rating <= 5 ? rating : undefined,
       category,
-      updatedAt: typeof mix.updatedAt === 'string' ? mix.updatedAt : new Date().toISOString()
+      updatedAt: typeof mix?.updatedAt === 'string' ? mix.updatedAt : new Date().toISOString()
     };
   }
 
