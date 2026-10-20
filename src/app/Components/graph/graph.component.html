@@ -1,4 +1,4 @@
-<div class="page" [class.filters-hidden]="!filtersOpen">
+<div class="page" [class.filters-hidden]="!filtersOpen" [class.fullscreen]="fullscreen">
   <header class="topbar">
     <h1 class="visually-hidden">Сочетания вкусов</h1>
     <app-nav></app-nav>
@@ -134,12 +134,27 @@
         </div>
       }
       @if (!graphEmpty) {
-        <button type="button" class="fit-btn" aria-label="Показать граф целиком" (click)="fitToView()">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M9 4H4v5M20 9V4h-5M15 20h5v-5M4 15v5h5"/>
-          </svg>
-        </button>
+        <div class="graph-tools">
+          <button type="button" class="tool-btn" [attr.aria-label]="fullscreen ? 'Свернуть граф' : 'Граф во весь экран'"
+                  [title]="fullscreen ? 'Свернуть' : 'Во весь экран'" (click)="toggleFullscreen()">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              @if (fullscreen) {
+                <path d="M9 4v5H4M15 4v5h5M15 20v-5h5M9 20v-5H4"/>
+              } @else {
+                <path d="M9 4H4v5M20 9V4h-5M15 20h5v-5M4 15v5h5"/>
+              }
+            </svg>
+          </button>
+          <button type="button" class="tool-btn" aria-label="Вписать граф в экран" title="Вписать в экран"
+                  (click)="fitToView()">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
+              <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+        </div>
       }
       @if (graphEmpty) {
         <p class="graph-empty">Все цвета выключены - включите хотя бы один в фильтрах или выберите продукт</p>

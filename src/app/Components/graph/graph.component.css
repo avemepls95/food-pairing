@@ -262,6 +262,24 @@
   margin-top: 10px;
 }
 
+/* Во весь экран: на телефоне Fullscreen API недоступен, поэтому прячем всё вокруг графа */
+.page.fullscreen {
+  gap: 0;
+  padding: 0;
+}
+
+.page.fullscreen .topbar,
+.page.fullscreen .selected-row,
+.page.fullscreen .hidden-note,
+.page.fullscreen .controls {
+  display: none;
+}
+
+.page.fullscreen .graph-card {
+  border: 0;
+  border-radius: 0;
+}
+
 .graph-card {
   position: relative;
   flex: 1 1 0;
@@ -269,14 +287,20 @@
   overflow: hidden;
 }
 
-.fit-btn {
+.graph-tools {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-btn {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--border);
   border-radius: 50%;
   background: var(--surface);
@@ -314,20 +338,20 @@
 
 /* Ховер только с мышью: на тач-экране он залипает после тапа */
 @media (hover: hover) {
-  .filters-toggle:hover, .selected-chip:hover, .chip:hover, .product-item:hover, .fit-btn:hover {
+  .filters-toggle:hover, .selected-chip:hover, .chip:hover, .product-item:hover, .tool-btn:hover {
     background: var(--surface-hover);
   }
 
-  .fit-btn:hover {
+  .tool-btn:hover {
     color: var(--text);
   }
 }
 
-.filters-toggle:active, .selected-chip:active, .chip:active, .product-item:active, .fit-btn:active {
+.filters-toggle:active, .selected-chip:active, .chip:active, .product-item:active, .tool-btn:active {
   background: var(--surface-hover);
 }
 
-.filters-toggle:active, .fit-btn:active {
+.filters-toggle:active, .tool-btn:active {
   transform: scale(0.97);
 }
 

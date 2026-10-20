@@ -43,6 +43,7 @@ export class GraphComponent implements OnInit, OnDestroy {
   private destroyed = false;
   private graphContainer = viewChild.required<ElementRef<HTMLElement>>('graphContainer');
   filtersOpen = true;
+  fullscreen = false;
   modeHelpOpen = false;
   graphEmpty = false;
   loadError = '';
@@ -148,8 +149,15 @@ export class GraphComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('document:keydown.escape')
-  closeModeHelp(): void {
+  closeOnEscape(): void {
     this.modeHelpOpen = false;
+    this.fullscreen = false;
+  }
+
+  // Граф занимает весь экран: шапка, выбранные продукты и фильтры прячутся.
+  // Свой режим, а не Fullscreen API: на iPhone он работает только для видео
+  toggleFullscreen(): void {
+    this.fullscreen = !this.fullscreen;
   }
 
   applyFilter(immediate = false): void {
