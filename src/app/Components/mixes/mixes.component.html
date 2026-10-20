@@ -16,21 +16,19 @@
         В планах <span class="badge">{{ count('planned') }}</span>
       </button>
     </div>
-    @if (tab === 'tried') {
-      <button type="button" class="btn sort" (click)="bestFirst = !bestFirst"
-              [attr.aria-label]="bestFirst ? 'Сначала лучшие' : 'Сначала худшие'">
-        {{ bestFirst ? 'Лучшие' : 'Худшие' }}
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 19V5M6 11l6-6 6 6"/>
-        </svg>
-      </button>
-    }
+    <button type="button" class="btn sort" [disabled]="tab !== 'tried'" (click)="bestFirst = !bestFirst"
+            [attr.aria-label]="bestFirst ? 'Сначала лучшие' : 'Сначала худшие'">
+      {{ bestFirst ? 'Лучшие' : 'Худшие' }}
+      <svg viewBox="0 0 24 24" width="14" height="14" class="arrow" [class.up]="!bestFirst" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 5v14M6 13l6 6 6-6"/>
+      </svg>
+    </button>
   </div>
 
   <section class="list">
     @for (mix of visibleMixes; track mix.id) {
-      <article class="card mix">
+      <article class="card mix" [class.just-saved]="mix.id === justSavedId" (click)="editMix(mix)">
         <div class="mix-head">
           <h2 class="mix-title" [class.flavors]="!mix.name" [class.with-brands]="!mix.name && hasBrands(mix)">
             @if (mix.name) {
@@ -47,15 +45,17 @@
             }
           </h2>
 
-          <div class="mix-actions">
-            <button type="button" class="icon-btn" aria-label="Изменить микс" (click)="editMix(mix)">
+          <div class="mix-actions" (click)="$event.stopPropagation()">
+            <button type="button" class="icon-btn" [attr.aria-label]="'Изменить микс ' + title(mix)"
+                    (click)="editMix(mix)">
               <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"
                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M4 20h4l10-10-4-4L4 16z"/>
                 <path d="M14 6l4 4"/>
               </svg>
             </button>
-            <button type="button" class="icon-btn" aria-label="Удалить микс" (click)="removeMix(mix)">
+            <button type="button" class="icon-btn" [attr.aria-label]="'Удалить микс ' + title(mix)"
+                    (click)="removeMix(mix)">
               <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"
                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>
@@ -66,7 +66,7 @@
 
         <div class="mix-body">
           @if (mix.rating) {
-            <div class="stars" [attr.aria-label]="'Оценка ' + mix.rating + ' из 5'">
+            <div class="stars" role="img" [attr.aria-label]="'Оценка ' + mix.rating + ' из 5'">
               @for (star of stars; track star) {
                 <svg viewBox="0 0 24 24" width="16" height="16" class="star" [class.on]="mix.rating! >= star"
                      aria-hidden="true">
@@ -91,24 +91,29 @@
         </div>
       </article>
     } @empty {
-      <p class="hint empty">
-        {{ tab === 'tried' ? 'Пока пусто. Добавь микс, который уже пробовал' : 'Пока пусто. Добавь микс, который хочешь попробовать' }}
-      </p>
+      <div class="empty">
+        <p class="hint">
+          {{ tab === 'tried' ? 'Пока пусто. Добавь микс, который уже пробовал' : 'Пока пусто. Добавь микс, который хочешь попробовать' }}
+        </p>
+        <button type="button" class="btn btn-primary" (click)="addMix()">Добавить микс</button>
+      </div>
     }
   </section>
 
   <footer class="backup">
-    <button type="button" class="btn" (click)="exportBackup()">Сохранить копию</button>
+    <button type="button" class="btn" [disabled]="!mixes.length" (click)="exportBackup()">Сохранить копию</button>
     <label class="btn import">
       Загрузить копию
-      <input type="file" accept="application/json" class="visually-hidden" (change)="importBackup($event)">
+      <input type="file" accept="application/json,.json" class="visually-hidden" (change)="importBackup($event)">
     </label>
-    <p class="hint">Миксы хранятся только в этом браузере. Копия переносит их на другое устройство</p>
+    <p class="hint" role="status">
+      {{ status || 'Миксы хранятся в этом браузере. Добавьте сайт на домашний экран и держите копию: так список переживёт чистку браузера и переезд на другое устройство' }}
+    </p>
   </footer>
 </div>
 
 <dialog #formDialog class="dialog" aria-labelledby="dialog-title" (close)="draft = undefined"
-        (click)="closeOnBackdrop($event)">
+        (pointerdown)="onDialogPointerDown($event)" (click)="onDialogClick($event)">
   @if (draft; as draft) {
     <div class="dialog-head">
       <h2 id="dialog-title">{{ isNewMix ? 'Новый микс' : 'Изменить микс' }}</h2>
@@ -122,7 +127,8 @@
 
     <div class="dialog-body">
       <input type="text" class="input" [(ngModel)]="draft.name" placeholder="Название (необязательно)"
-             aria-label="Название микса">
+             aria-label="Название микса" maxlength="80" autocomplete="off" autocorrect="off" spellcheck="false"
+             enterkeyhint="done" (keydown.enter)="saveDraft()">
 
       <div class="segmented" role="group" aria-label="Категория">
         <button type="button" [class.active]="draft.category === 'tried'"
@@ -152,10 +158,12 @@
         <span class="section-label">Состав</span>
         @for (item of draft.items; track $index) {
           <div class="item-row">
-            <input type="text" class="input brand" [(ngModel)]="item.brand" placeholder="Бренд"
-                   [attr.aria-label]="'Бренд, вкус ' + ($index + 1)">
-            <input type="text" class="input" [(ngModel)]="item.flavor" placeholder="Вкус"
-                   [attr.aria-label]="'Вкус ' + ($index + 1)">
+            <input type="text" class="input brand-input" [(ngModel)]="item.brand" placeholder="Бренд"
+                   [attr.aria-label]="'Бренд, вкус ' + ($index + 1)" maxlength="40" autocomplete="off"
+                   autocorrect="off" spellcheck="false" enterkeyhint="done" (keydown.enter)="saveDraft()">
+            <input type="text" class="input" #flavorInput [(ngModel)]="item.flavor" placeholder="Вкус"
+                   [attr.aria-label]="'Вкус ' + ($index + 1)" maxlength="40" autocomplete="off"
+                   autocorrect="off" spellcheck="false" enterkeyhint="done" (keydown.enter)="saveDraft()">
             <button type="button" class="icon-btn" aria-label="Убрать вкус"
                     [disabled]="draft.items.length <= minItems" (click)="removeItem($index)">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -167,13 +175,17 @@
         }
         <button type="button" class="btn add-item" (click)="addItem()">Добавить вкус</button>
       </div>
-
-      <p class="hint">Нужно минимум {{ minItems }} вкуса@if (draft.category === 'tried') { и оценка }</p>
     </div>
 
     <div class="dialog-actions">
-      <button type="button" class="btn" (click)="closeDialog()">Отмена</button>
-      <button type="button" class="btn btn-primary" [disabled]="!draftValid" (click)="saveDraft()">Сохранить</button>
+      @if (draftProblem) {
+        <p class="hint problem" id="draft-problem">{{ draftProblem }}</p>
+      }
+      <div class="dialog-buttons">
+        <button type="button" class="btn" (click)="closeDialog()">Отмена</button>
+        <button type="button" class="btn btn-primary" [disabled]="!draftValid"
+                [attr.aria-describedby]="draftProblem ? 'draft-problem' : null" (click)="saveDraft()">Сохранить</button>
+      </div>
     </div>
   }
 </dialog>

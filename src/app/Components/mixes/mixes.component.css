@@ -4,23 +4,7 @@
   gap: 12px;
   max-width: 760px;
   margin: 0 auto;
-  padding: 10px 10px 32px;
-}
-
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 2px 2px 0 6px;
-}
-
-app-nav {
-  margin-right: auto;
-}
-
-.section-label {
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
 }
 
 .tabs {
@@ -65,6 +49,14 @@ app-nav {
   white-space: nowrap;
 }
 
+.sort:disabled {
+  opacity: 0.4;
+}
+
+.arrow.up {
+  transform: rotate(180deg);
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -73,13 +65,18 @@ app-nav {
 
 .mix {
   padding: 10px 12px;
+  cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.mix:active {
+  background: var(--surface-hover);
 }
 
 @media (hover: hover) {
   .mix:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgb(16 24 40 / 8%), 0 8px 18px rgb(16 24 40 / 6%);
+    box-shadow: var(--shadow-lifted);
   }
 
   .mix:hover .icon-btn {
@@ -131,11 +128,12 @@ app-nav {
 }
 
 .brand {
-  color: var(--border-strong);
+  color: var(--muted);
+  opacity: 0.75;
 }
 
 .mix-title .brand {
-  color: var(--muted);
+  opacity: 1;
   font-weight: 500;
 }
 
@@ -153,23 +151,41 @@ app-nav {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #d3d7de;
+  color: var(--star-off);
   fill: currentColor;
   line-height: 0;
 }
 
 .star.on {
-  color: #f0a800;
+  color: var(--star-on);
+}
+
+/* Только для незажжённых: иначе правило перебивает .star.on по специфичности */
+.stars.big .star:not(.on) {
+  color: var(--border-strong);
+}
+
+.stars.big {
+  gap: 0;
 }
 
 .stars.big .star {
-  color: var(--border-strong);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
   cursor: pointer;
   transition: transform 0.12s;
 }
 
-.stars.big .star:hover {
-  transform: scale(1.12);
+@media (hover: hover) {
+  .stars.big .star:hover {
+    transform: scale(1.12);
+  }
+}
+
+.stars.big .star:active {
+  transform: scale(0.92);
 }
 
 .mix-actions {
@@ -181,23 +197,32 @@ app-nav {
 .icon-btn {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 10px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s, opacity 0.15s;
 }
 
-.icon-btn:hover:not(:disabled) {
+/* Только при наличии мыши: на тач-экране ховер залипает после тапа */
+@media (hover: hover) {
+  .icon-btn:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+}
+
+.icon-btn:active:not(:disabled) {
   background: var(--surface-hover);
   color: var(--text);
+  transform: scale(0.94);
 }
 
 .icon-btn:disabled {
-  color: #dcdfe5;
+  color: var(--star-off);
   cursor: default;
 }
 
@@ -208,8 +233,30 @@ app-nav {
 }
 
 .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
   padding: 28px 4px;
   text-align: center;
+}
+
+/* Подсветка показывает, куда попал сохранённый микс */
+.mix.just-saved {
+  animation: saved 1.4s ease-out;
+}
+
+@keyframes saved {
+  from {
+    border-color: var(--star-on);
+    background: color-mix(in srgb, var(--star-on) 12%, var(--surface));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mix.just-saved {
+    animation: none;
+  }
 }
 
 .backup {
@@ -236,8 +283,12 @@ app-nav {
 /* Форма микса */
 
 .dialog {
-  width: min(520px, 100%);
+  /* Браузер сам ограничивает ширину модального окна, поэтому задаём её явно */
+  width: 100%;
+  max-width: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-bottom: 96px;
   max-height: 90dvh;
   padding: 0;
   border: 0;
@@ -245,7 +296,7 @@ app-nav {
   margin: auto auto 0;
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 -8px 40px rgb(16 24 40 / 18%);
+  box-shadow: var(--shadow-lifted);
 }
 
 .dialog::backdrop {
@@ -321,16 +372,28 @@ app-nav {
 .dialog-actions {
   position: sticky;
   bottom: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   background: var(--bg);
 }
 
+.dialog-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.problem {
+  text-align: center;
+}
+
 @media (min-width: 600px) {
   .dialog {
+    width: 520px;
+    max-width: calc(100% - 32px);
     border-radius: 20px;
     margin: auto;
   }

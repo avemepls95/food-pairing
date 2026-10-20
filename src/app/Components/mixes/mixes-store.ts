@@ -1,13 +1,24 @@
 import { Injectable } from '@angular/core';
-import { isMixValid, Mix, MixCategory } from './mix';
+import { isMixValid, Mix, MixCategory, MixItem, newMixId } from './mix';
 
 interface Backup {
   version: number;
   mixes: Mix[];
 }
 
+export interface ParsedBackup {
+  mixes: Mix[];
+  /** Сколько записей файла не прошли правила */
+  skipped: number;
+}
+
 const STORAGE_KEY = 'food-pairing.mixes';
 const STORAGE_VERSION = 1;
+
+const asText = (value: unknown): string | undefined => {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text || undefined;
+};
 
 /**
  * Миксы хранятся в localStorage браузера: одно устройство - свой список.
@@ -45,41 +56,52 @@ export class MixesStore {
 
   /**
    * Разбирает файл резервной копии. Бросает исключение, если это не копия миксов.
-   * Миксы, не проходящие правила (меньше двух вкусов, "попробовал" без оценки), в список не попадают.
+   * Записи, не прошедшие правила (меньше двух вкусов, "попробовал" без оценки), в список не попадают.
    */
-  parseBackup(json: string): Mix[] {
+  parseBackup(json: string): ParsedBackup {
     const backup = JSON.parse(json) as Backup;
     if (!backup || !Array.isArray(backup.mixes)) {
       throw new Error('В файле нет списка миксов');
     }
 
-    const mixes = backup.mixes.map(mix => {
-      if (!Array.isArray(mix?.items) || mix.items.some(item => typeof item?.flavor !== 'string')) {
-        throw new Error('В файле испорчен состав микса');
-      }
-      const category: MixCategory = mix.category === 'planned' ? 'planned' : 'tried';
-      return {
-        id: typeof mix.id === 'string' ? mix.id : crypto.randomUUID(),
-        name: mix.name,
-        items: mix.items.map(item => ({ brand: item.brand, flavor: item.flavor })),
-        rating: category === 'tried' ? mix.rating : undefined,
-        category,
-        updatedAt: typeof mix.updatedAt === 'string' ? mix.updatedAt : new Date().toISOString()
-      };
-    }).filter(isMixValid);
-
+    const ids = new Set<string>();
+    const mixes = backup.mixes.map(mix => this.normalize(mix, ids)).filter(isMixValid);
     if (!mixes.length) {
       throw new Error('В файле нет ни одного подходящего микса');
     }
 
-    return mixes;
+    return { mixes, skipped: backup.mixes.length - mixes.length };
+  }
+
+  /** Файл мог быть собран чем угодно, поэтому приводим типы и выбрасываем мусор */
+  private normalize(mix: Mix, usedIds: Set<string>): Mix {
+    if (!Array.isArray(mix?.items)) {
+      throw new Error('В файле испорчен состав микса');
+    }
+
+    const category: MixCategory = mix.category === 'planned' ? 'planned' : 'tried';
+    const rating = Math.round(Number(mix.rating));
+    const id = typeof mix.id === 'string' && !usedIds.has(mix.id) ? mix.id : newMixId();
+    usedIds.add(id);
+
+    return {
+      id,
+      name: asText(mix.name),
+      items: mix.items
+        .map((item: MixItem) => ({ brand: asText(item?.brand), flavor: asText(item?.flavor) ?? '' }))
+        .filter(item => item.flavor),
+      rating: category === 'tried' && rating >= 1 && rating <= 5 ? rating : undefined,
+      category,
+      updatedAt: typeof mix.updatedAt === 'string' ? mix.updatedAt : new Date().toISOString()
+    };
   }
 
   private read(): Mix[] {
     // Хранилище недоступно в приватном режиме, а содержимое мог испортить импорт чужого файла
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? (JSON.parse(stored) as Backup).mixes ?? [] : [];
+      const mixes = stored ? (JSON.parse(stored) as Backup).mixes : [];
+      return Array.isArray(mixes) ? mixes : [];
     } catch {
       return [];
     }

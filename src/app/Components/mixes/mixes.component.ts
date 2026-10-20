@@ -1,12 +1,11 @@
-import { Component, ElementRef, inject, OnInit, viewChild } from '@angular/core';
+import { Component, ElementRef, inject, OnInit, viewChild, viewChildren } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NavComponent } from '../nav/nav.component';
-import { isMixValid, Mix, MixCategory, MIX_MIN_ITEMS } from './mix';
+import { isMixValid, Mix, MixCategory, MIX_MIN_ITEMS, newMixId } from './mix';
 import { MixesStore } from './mixes-store';
 
 @Component({
   selector: 'app-mixes',
-  standalone: true,
   imports: [FormsModule, NavComponent],
   templateUrl: './mixes.component.html',
   styleUrls: ['./mixes.component.css']
@@ -14,6 +13,7 @@ import { MixesStore } from './mixes-store';
 export class MixesComponent implements OnInit {
   private store = inject(MixesStore);
   private formDialog = viewChild.required<ElementRef<HTMLDialogElement>>('formDialog');
+  private flavorInputs = viewChildren<ElementRef<HTMLInputElement>>('flavorInput');
 
   readonly stars = [1, 2, 3, 4, 5];
   readonly minItems = MIX_MIN_ITEMS;
@@ -23,6 +23,8 @@ export class MixesComponent implements OnInit {
   bestFirst = true;
   draft: Mix | undefined;
   isNewMix = false;
+  justSavedId = '';
+  status = '';
 
   ngOnInit(): void {
     this.mixes = this.store.list();
@@ -31,7 +33,8 @@ export class MixesComponent implements OnInit {
   get visibleMixes(): Mix[] {
     const mixes = this.mixes.filter(mix => mix.category === this.tab);
     return this.tab === 'tried'
-      ? mixes.sort((a, b) => (this.bestFirst ? 1 : -1) * ((b.rating ?? 0) - (a.rating ?? 0)))
+      ? mixes.sort((a, b) => (this.bestFirst ? 1 : -1) * ((b.rating ?? 0) - (a.rating ?? 0))
+          || b.updatedAt.localeCompare(a.updatedAt))
       : mixes.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
@@ -43,10 +46,14 @@ export class MixesComponent implements OnInit {
     return mix.items.some(item => !!item.brand);
   }
 
+  title(mix: Mix): string {
+    return mix.name || mix.items.map(item => item.flavor).join(' + ');
+  }
+
   addMix(): void {
     this.isNewMix = true;
     this.openDialog({
-      id: crypto.randomUUID(),
+      id: newMixId(),
       items: [{ flavor: '' }, { flavor: '' }],
       category: this.tab,
       updatedAt: new Date().toISOString()
@@ -63,15 +70,27 @@ export class MixesComponent implements OnInit {
     this.draft = undefined;
   }
 
-  // У модального окна клик мимо содержимого приходит на сам dialog
-  closeOnBackdrop(event: MouseEvent): void {
-    if (event.target === this.formDialog().nativeElement) {
+  /**
+   * У модального окна клик мимо содержимого приходит на сам dialog. Проверяем и нажатие, и отпускание:
+   * иначе выделение текста мышью, законченное над фоном, закроет форму.
+   */
+  onDialogPointerDown(event: PointerEvent): void {
+    this.pressedOnBackdrop = event.target === this.formDialog().nativeElement;
+  }
+
+  onDialogClick(event: MouseEvent): void {
+    if (this.pressedOnBackdrop && event.target === this.formDialog().nativeElement) {
       this.closeDialog();
     }
   }
 
   addItem(): void {
     this.draft?.items.push({ flavor: '' });
+    // Новая строка появляется под липким футером, поэтому переводим фокус на неё
+    queueMicrotask(() => {
+      const inputs = this.flavorInputs();
+      inputs[inputs.length - 1]?.nativeElement.focus();
+    });
   }
 
   removeItem(index: number): void {
@@ -79,12 +98,8 @@ export class MixesComponent implements OnInit {
   }
 
   setCategory(category: MixCategory): void {
-    if (!this.draft) {
-      return;
-    }
-    this.draft.category = category;
-    if (category === 'planned') {
-      this.draft.rating = undefined;
+    if (this.draft) {
+      this.draft.category = category;
     }
   }
 
@@ -92,24 +107,38 @@ export class MixesComponent implements OnInit {
     return !!this.draft && isMixValid(this.draft);
   }
 
+  /** Чего не хватает, чтобы сохранить */
+  get draftProblem(): string {
+    if (!this.draft || this.draftValid) {
+      return '';
+    }
+    const filled = this.draft.items.filter(item => item.flavor.trim()).length;
+    return filled < this.minItems
+      ? `Нужно ещё ${this.minItems - filled} вкус${this.minItems - filled > 1 ? 'а' : ''}`
+      : 'Поставьте оценку';
+  }
+
   saveDraft(): void {
     if (!this.draft || !this.draftValid) {
       return;
     }
+    const draft = this.draft;
     this.store.save({
-      ...this.draft,
-      name: this.draft.name?.trim() || undefined,
-      items: this.draft.items
+      ...draft,
+      name: draft.name?.trim() || undefined,
+      rating: draft.category === 'tried' ? draft.rating : undefined,
+      items: draft.items
         .filter(item => item.flavor.trim())
         .map(item => ({ brand: item.brand?.trim() || undefined, flavor: item.flavor.trim() }))
     });
-    this.tab = this.draft.category;
+    this.tab = draft.category;
+    this.justSavedId = draft.id;
     this.mixes = this.store.list();
     this.closeDialog();
   }
 
   removeMix(mix: Mix): void {
-    if (confirm(`Удалить микс "${mix.name || mix.items.map(item => item.flavor).join(' + ')}"?`)) {
+    if (confirm(`Удалить микс "${this.title(mix)}"?`)) {
       this.store.remove(mix.id);
       this.mixes = this.store.list();
     }
@@ -120,12 +149,13 @@ export class MixesComponent implements OnInit {
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `mixes-${new Date().toISOString().slice(0, 10)}.json`;
-    // Safari скачивает по такой ссылке, только если она есть в документе
+    link.download = `mixes-${new Date().toLocaleDateString('sv')}.json`;
+    // Safari скачивает по такой ссылке, только если она есть в документе, и начинает загрузку не сразу
     document.body.append(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    this.status = `Копия сохранена, миксов: ${this.mixes.length}`;
   }
 
   async importBackup(event: Event): Promise<void> {
@@ -137,18 +167,24 @@ export class MixesComponent implements OnInit {
     }
 
     try {
-      const mixes = this.store.parseBackup(await file.text());
-      if (confirm(`Заменить текущий список (${this.mixes.length}) на миксы из файла (${mixes.length})?`)) {
+      const { mixes, skipped } = this.store.parseBackup(await file.text());
+      const skippedNote = skipped ? `, записей не по правилам: ${skipped}` : '';
+      if (confirm(`Заменить текущий список (${this.mixes.length}) на миксы из файла (${mixes.length}${skippedNote})?`)) {
         this.store.replaceAll(mixes);
         this.mixes = this.store.list();
+        this.status = `Загружено миксов: ${mixes.length}`;
       }
     } catch (error) {
-      alert(`Не удалось прочитать файл: ${(error as Error).message}`);
+      this.status = `Не удалось прочитать файл: ${(error as Error).message}`;
     }
   }
 
+  private pressedOnBackdrop = false;
+
   // Модальное окно: пока форма открыта, до остальных миксов не добраться
   private openDialog(draft: Mix): void {
+    this.status = '';
+    this.pressedOnBackdrop = false;
     this.draft = draft;
     this.formDialog().nativeElement.showModal();
   }

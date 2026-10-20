@@ -3,18 +3,8 @@
   flex-direction: column;
   gap: 10px;
   height: 100dvh;
-  padding: 10px;
-}
-
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 2px 2px 0 6px;
-}
-
-app-nav {
-  margin-right: auto;
+  /* Вырез и домашняя полоса iPhone в режиме приложения */
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
 }
 
 .filters-toggle {
@@ -32,8 +22,33 @@ app-nav {
   cursor: pointer;
 }
 
-.filters-toggle:hover {
-  background: var(--surface-hover);
+.selected-row {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 0 2px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.selected-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.selected-chip svg {
+  color: var(--muted);
 }
 
 .workspace {
@@ -59,11 +74,6 @@ app-nav {
 
 .legend, .mode, .search {
   flex-shrink: 0;
-}
-
-.section-label {
-  font-size: 0.85rem;
-  font-weight: 600;
 }
 
 .legend-head {
@@ -93,10 +103,6 @@ app-nav {
   cursor: pointer;
   user-select: none;
   transition: opacity 0.15s, background-color 0.15s;
-}
-
-.chip:hover {
-  background: var(--surface-hover);
 }
 
 .chip:has(input:focus-visible) {
@@ -235,10 +241,6 @@ app-nav {
   cursor: pointer;
 }
 
-.product-item:hover {
-  background: var(--surface-hover);
-}
-
 .product-item:has(input:checked) {
   font-weight: 600;
 }
@@ -267,15 +269,42 @@ app-nav {
   overflow: hidden;
 }
 
+.fit-btn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
 .graph-empty {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 14px;
   margin: 0;
   padding: 24px;
   text-align: center;
   color: var(--muted);
+}
+
+.graph-empty p {
+  margin: 0;
+}
+
+.hidden-note {
+  flex-shrink: 0;
+  padding: 0 6px;
 }
 
 .graph-container {
@@ -283,9 +312,42 @@ app-nav {
   height: 100%;
 }
 
+/* Ховер только с мышью: на тач-экране он залипает после тапа */
+@media (hover: hover) {
+  .filters-toggle:hover, .selected-chip:hover, .chip:hover, .product-item:hover, .fit-btn:hover {
+    background: var(--surface-hover);
+  }
+
+  .fit-btn:hover {
+    color: var(--text);
+  }
+}
+
+.filters-toggle:active, .selected-chip:active, .chip:active, .product-item:active, .fit-btn:active {
+  background: var(--surface-hover);
+}
+
+.filters-toggle:active, .fit-btn:active {
+  transform: scale(0.97);
+}
+
 @media (max-width: 340px) {
   .legend-items {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Телефон в альбомной ориентации: панель сверху оставляла графу полоску в несколько десятков пикселей */
+@media (min-width: 900px), (orientation: landscape) and (min-width: 560px) {
+  .workspace {
+    flex-direction: row;
+    gap: 16px;
+  }
+
+  .controls {
+    width: min(340px, 42vw);
+    flex-shrink: 0;
+    max-height: none;
   }
 }
 
@@ -295,14 +357,7 @@ app-nav {
     padding: 16px;
   }
 
-  .workspace {
-    flex-direction: row;
-    gap: 16px;
-  }
-
   .controls {
     width: 340px;
-    flex-shrink: 0;
-    max-height: none;
   }
 }

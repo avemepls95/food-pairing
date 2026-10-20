@@ -9,7 +9,52 @@
   --radius: 14px;
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 4px 12px rgb(16 24 40 / 4%);
+  --shadow-lifted: 0 2px 4px rgb(16 24 40 / 8%), 0 8px 18px rgb(16 24 40 / 6%);
+  --star-on: #f0a800;
+  --star-off: #d3d7de;
+  --primary-hover: #000;
+  --level-red: #e03131;
+  --level-yellow: #f0a800;
+  --level-green: #2f9e44;
+  --level-blue: #3b5bdb;
   color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --surface: #1c1f25;
+    --surface-hover: #262a32;
+    --border: #2d323b;
+    --border-strong: #4a515d;
+    --text: #e9ebef;
+    --muted: #9aa2b1;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 28%);
+    --shadow-lifted: 0 2px 6px rgb(0 0 0 / 45%), 0 10px 22px rgb(0 0 0 / 32%);
+    --star-off: #3b414c;
+    --primary-hover: #fff;
+    --level-red: #ff6b6b;
+    --level-yellow: #ffc940;
+    --level-green: #51cf66;
+    --level-blue: #748ffc;
+    color-scheme: dark;
+  }
+}
+
+.level-red {
+  background: var(--level-red);
+}
+
+.level-yellow {
+  background: var(--level-yellow);
+}
+
+.level-green {
+  background: var(--level-green);
+}
+
+.level-blue {
+  background: var(--level-blue);
 }
 
 *, *::before, *::after {
@@ -44,6 +89,11 @@ button, input {
   outline-offset: 2px;
 }
 
+/* Фон не должен прокручиваться под открытым модальным окном */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -57,6 +107,22 @@ button, input {
 }
 
 /* Общие элементы страниц */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 2px 0 6px;
+}
+
+app-nav {
+  margin-right: auto;
+}
+
+.section-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
 
 .card {
   background: var(--surface);
@@ -74,8 +140,25 @@ button, input {
   cursor: pointer;
 }
 
-.btn:hover:not(:disabled) {
+/* Только при наличии мыши: на тач-экране ховер залипает после тапа */
+@media (hover: hover) {
+  .btn:hover:not(:disabled) {
+    background: var(--surface-hover);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+  }
+}
+
+.btn:active:not(:disabled) {
   background: var(--surface-hover);
+  transform: scale(0.97);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--primary-hover);
+  transform: scale(0.97);
 }
 
 .btn:disabled {
@@ -88,10 +171,6 @@ button, input {
   background: var(--text);
   color: var(--surface);
   font-weight: 500;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #000;
 }
 
 .btn-primary:disabled {
@@ -150,6 +229,15 @@ button, input {
   box-shadow: 0 1px 3px rgb(16 24 40 / 14%);
 }
 
+.segmented button:active, .segmented a:active {
+  background: var(--surface-hover);
+}
+
+.btn, .segmented button, .segmented a, .chip, .icon-btn, .product-item, .star {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 .hint {
   margin: 0;
   font-size: 0.78rem;
@@ -174,4 +262,54 @@ button, input {
   color: var(--surface);
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+/* Содержимое графа рисует d3, поэтому стили компонента до него не доходят */
+.graph-container circle {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+
+.graph-container circle.selected {
+  stroke: var(--text);
+  stroke-width: 3;
+}
+
+.graph-container .tiny text {
+  display: none;
+}
+
+.graph-container .tiny .text-node.selected text {
+  display: block;
+  font-size: calc(11px / var(--zoom, 1));
+  stroke-width: calc(3px / var(--zoom, 1));
+}
+
+/* Обводка цветом фона - подпись читается поверх линий */
+.graph-container text {
+  fill: var(--text);
+  stroke: var(--surface);
+  stroke-width: 3;
+}
+
+.graph-container .link {
+  stroke-width: 2;
+  stroke-opacity: 0.7;
+}
+
+.graph-container .level-red {
+  stroke: var(--level-red);
+}
+
+.graph-container .level-yellow {
+  stroke: var(--level-yellow);
+}
+
+.graph-container .level-green {
+  stroke: var(--level-green);
+}
+
+.graph-container .level-blue {
+  stroke: var(--level-blue);
 }

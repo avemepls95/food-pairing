@@ -1,59 +1,34 @@
-# FoodPairingHookahFrontend
+# Сочетания вкусов
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.3.
+Личный справочник по кальянным миксам: https://avemepls95.github.io/food-pairing/
 
-## Development server
+Две независимые страницы:
 
-To start a local development server, run:
+- **Граф** (`#/`) - сочетаемость вкусов из таблиц. Фильтр по силе сочетания, поиск продукта, два режима показа связей.
+- **Миксы** (`#/mixes`) - свой список миксов с оценкой и категориями «попробовал» и «в планах».
 
-```bash
-ng serve
-```
+Бэкенда нет. Данные графа лежат в репозитории, миксы - в localStorage браузера, с выгрузкой и загрузкой файла.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Разработка
 
 ```bash
-ng generate component component-name
+npm install
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Сборка: `npm run build`, результат в `dist/food-pairing-hookah-frontend/browser`.
 
-```bash
-ng generate --help
-```
+## Данные графа
 
-## Building
+- `public/data/tables.json` - распознанные таблицы как есть: заголовок, колонки-категории и ячейки `[текст, цвет]`.
+  Цвет: `R` сильнее всего, дальше `O`, `G`, `B`, а `P` - минимальная сочетаемость, в граф такие ячейки не попадают.
+- `public/data/products.json` - справочник продуктов: каноническое имя, категория и варианты написания из таблиц.
 
-To build the project run:
+Граф собирается в браузере (`graph-data.ts`): названия приводятся к каноническим через справочник, пара продуктов
+даёт одну связь с самым сильным уровнем из всех таблиц. Название, которого нет в справочнике, попадёт в консоль.
 
-```bash
-ng build
-```
+Чтобы добавить таблицу: дописать её в `tables.json`, а недостающие названия - в `products.json`.
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Публикация
 
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Пуш в `main` запускает `.github/workflows/pages.yml`: сборка с `--base-href /food-pairing/` и публикация на GitHub Pages.

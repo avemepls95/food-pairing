@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, NgZone, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, NgZone, OnDestroy, OnInit, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import * as d3 from 'd3';
 import { NavComponent } from '../nav/nav.component';
@@ -14,6 +14,8 @@ interface GraphSettings {
   mode: 'strict' | 'extended'; // Два режима отображения
 }
 
+const SETTINGS_KEY = 'food-pairing.graph-settings';
+
 interface FilterOptions {
   showRed: boolean;
   showYellow: boolean;
@@ -28,14 +30,23 @@ interface FilterOptions {
   templateUrl: './graph.component.html',
   styleUrls: ['./graph.component.css']
 })
-export class GraphComponent implements OnInit {
+export class GraphComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
   private svg: any;
   private zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | undefined;
   private simulation: d3.Simulation<Node, d3.SimulationLinkDatum<Node>> | undefined;
+  private resizeObserver: ResizeObserver | undefined;
+  private redrawHandle = 0;
+  private redrawTimeout: ReturnType<typeof setTimeout> | undefined;
+  private updatePositions: (() => void) | undefined;
+  private laidOutOnce = false;
+  private destroyed = false;
+  private graphContainer = viewChild.required<ElementRef<HTMLElement>>('graphContainer');
   filtersOpen = true;
   modeHelpOpen = false;
   graphEmpty = false;
+  loadError = '';
+  hiddenByColor = 0;
   graph: { nodes: Node[]; links: Link[] } = { nodes: [], links: [] };
   filteredLinks: Link[] = [];
   selectedProducts: string[] = [];
@@ -62,17 +73,70 @@ export class GraphComponent implements OnInit {
   };
 
   async ngOnInit(): Promise<void> {
-    const [tables, products] = await Promise.all([
-      fetch('data/tables.json').then(r => r.json() as Promise<PairingTable[]>),
-      fetch('data/products.json').then(r => r.json() as Promise<Product[]>)
-    ]);
-    this.graph = buildGraph(tables, products);
-    this.groupProducts();
-    this.applyFilter();
+    this.restoreSettings();
+    await this.loadData();
+  }
 
-    // Размер графа меняется при скрытии фильтров и повороте экрана
-    new ResizeObserver(() => this.zone.runOutsideAngular(() => this.fitToView()))
-      .observe(document.getElementById('graph-container')!);
+  async loadData(): Promise<void> {
+    this.loadError = '';
+    try {
+      const [tables, products] = await Promise.all([
+        this.fetchJson<PairingTable[]>('data/tables.json'),
+        this.fetchJson<Product[]>('data/products.json')
+      ]);
+      // Пока грузились данные, со страницы могли уйти
+      if (this.destroyed) {
+        return;
+      }
+      this.graph = buildGraph(tables, products);
+      this.groupProducts();
+      this.applyFilter(true);
+
+      // Размер графа меняется при скрытии фильтров и повороте экрана
+      this.resizeObserver = new ResizeObserver(() => this.zone.runOutsideAngular(() => this.fitToView()));
+      this.resizeObserver.observe(this.graphContainer().nativeElement);
+    } catch {
+      this.loadError = 'Не удалось загрузить данные';
+    }
+  }
+
+  private async fetchJson<T>(url: string): Promise<T> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`${url}: ${response.status}`);
+    }
+    return response.json() as Promise<T>;
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    cancelAnimationFrame(this.redrawHandle);
+    clearTimeout(this.redrawTimeout);
+    this.resizeObserver?.disconnect();
+    this.simulation?.stop();
+  }
+
+  // Выбранные цвета и режим переживают перезагрузку, выбранные продукты - нет
+  private restoreSettings(): void {
+    // В приватном режиме браузер запрещает доступ к хранилищу
+    try {
+      const saved = localStorage.getItem(SETTINGS_KEY);
+      if (saved) {
+        const settings = JSON.parse(saved) as { filter?: FilterOptions; mode?: GraphSettings['mode'] };
+        this.filter = { ...this.filter, ...settings.filter };
+        this.settings.mode = settings.mode ?? this.settings.mode;
+      }
+    } catch {
+      return;
+    }
+  }
+
+  private saveSettings(): void {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ filter: this.filter, mode: this.settings.mode }));
+    } catch {
+      return;
+    }
   }
 
   // pointerdown, а не click: iOS Safari не отправляет click в document при тапе по некликабельному элементу
@@ -88,7 +152,7 @@ export class GraphComponent implements OnInit {
     this.modeHelpOpen = false;
   }
 
-  applyFilter(): void {
+  applyFilter(immediate = false): void {
     // 1. Фильтрация связей по цвету
     let visibleLinks = this.graph.links.filter(link => 
       this.shouldShowLink(link)
@@ -113,7 +177,20 @@ export class GraphComponent implements OnInit {
 
     this.filteredLinks = visibleLinks;
     this.updateNodesVisibility();
-    this.renderGraph();
+    this.countHiddenByColor();
+    this.renderGraph(immediate);
+  }
+
+  /**
+   * Сколько связей выбранных продуктов не показано из-за выключенных цветов. Без этого выбранный
+   * продукт выглядит так, будто он ни с чем не сочетается.
+   */
+  private countHiddenByColor(): void {
+    const selected = new Set(this.selectedProducts);
+    this.hiddenByColor = selected.size
+      ? this.graph.links.filter(link =>
+          !this.shouldShowLink(link) && (selected.has(link.source) || selected.has(link.target))).length
+      : 0;
   }
 
   private updateNodesVisibility(): void {
@@ -136,7 +213,11 @@ export class GraphComponent implements OnInit {
   }
 
   setMode(mode: GraphSettings['mode']): void {
+    if (this.settings.mode === mode) {
+      return;
+    }
     this.settings.mode = mode;
+    this.saveSettings();
     this.applyFilter();
   }
 
@@ -150,18 +231,33 @@ export class GraphComponent implements OnInit {
     }
   }
 
-  // Вне зоны Angular: иначе каждый тик симуляции и событие drag/zoom запускают проверку изменений,
-  // и список продуктов перерисовывается прямо во время клика
-  private renderGraph(): void {
-    this.zone.runOutsideAngular(() => this.drawGraph());
+  /**
+   * Полная перерисовка большого графа занимает на телефоне сотни миллисекунд. Сначала ждём кадр,
+   * потом задачу: к этому моменту браузер уже показал нажатый чекбокс или кнопку. Подряд идущие
+   * вызовы схлопываются в один.
+   * Вне зоны Angular: иначе каждый тик симуляции и событие drag/zoom запускают проверку изменений,
+   * и список продуктов перерисовывается прямо во время клика.
+   */
+  private renderGraph(immediate: boolean): void {
+    cancelAnimationFrame(this.redrawHandle);
+    clearTimeout(this.redrawTimeout);
+    if (immediate) {
+      this.zone.runOutsideAngular(() => this.drawGraph());
+      return;
+    }
+    this.redrawHandle = requestAnimationFrame(() => {
+      this.redrawTimeout = setTimeout(() => this.zone.runOutsideAngular(() => this.drawGraph()));
+    });
   }
 
   private drawGraph(): void {
+    // Старая симуляция после перетаскивания ещё остывает и продолжает двигать те же объекты узлов
+    this.simulation?.stop();
     d3.select('#graph-container').selectAll('*').remove();
 
-    const containerElement = document.getElementById('graph-container');
-    const width = containerElement?.clientWidth || 800;
-    const height = containerElement?.clientHeight || 600;
+    const containerElement = this.graphContainer().nativeElement;
+    const width = containerElement.clientWidth || 800;
+    const height = containerElement.clientHeight || 600;
 
     // Создаем SVG с контейнером для zoom
     this.svg = d3.select('#graph-container')
@@ -178,21 +274,27 @@ export class GraphComponent implements OnInit {
       .scaleExtent([0.05, 4])
       .on('zoom', (event) => {
         container.attr('transform', event.transform);
+        // На мелком масштабе подписи сливаются в кашу, поэтому остаются только у выбранных продуктов.
+        // Масштаб уходит в стили: подпись выбранного рисуется одного размера на любом масштабе
+        container.classed('tiny', event.transform.k < 0.5);
+        container.style('--zoom', event.transform.k);
       });
 
     this.svg.call(this.zoom);
+    // Двойной тап по узлу выбирает продукт дважды, зум по нему не нужен
+    this.svg.on('dblclick.zoom', null);
 
     const visibleNodes = this.graph.nodes.filter(node => !node.hidden);
+    const nodeById = new Map(visibleNodes.map(node => [node.id, node]));
     const d3Links = this.filteredLinks.map(link => ({
-      source: visibleNodes.find(n => n.id === link.source)!,
-      target: visibleNodes.find(n => n.id === link.target)!,
+      source: nodeById.get(link.source)!,
+      target: nodeById.get(link.target)!,
       value: link.value
     }));
 
     // Симуляция с оптимизированными параметрами
     this.simulation = d3.forceSimulation<Node>(visibleNodes)
       .force('link', d3.forceLink(d3Links)
-        .id(d => (d as Node).id)
         .distance(100)
       )
       .force('charge', d3.forceManyBody()
@@ -209,9 +311,15 @@ export class GraphComponent implements OnInit {
       .stop();
 
     // Раскладка считается сразу до конца, без анимации: вписать граф в экран можно только по итоговым позициям.
-    // Число тиков - столько, за сколько alpha опускается до alphaMin и симуляция сама бы остановилась
-    const ticksToSettle = Math.ceil(Math.log(this.simulation.alphaMin()) / Math.log(1 - this.simulation.alphaDecay()));
+    // Узлы сохраняют координаты между перерисовками, поэтому после первой раскладки хватает короткого догона:
+    // так и считается быстрее, и граф не перетасовывается целиком от одного нового продукта
+    const startAlpha = this.laidOutOnce ? 0.3 : 1;
+    this.simulation.alpha(startAlpha);
+    const ticksToSettle = Math.ceil(
+      Math.log(this.simulation.alphaMin() / startAlpha) / Math.log(1 - this.simulation.alphaDecay())
+    );
     this.simulation.tick(ticksToSettle);
+    this.laidOutOnce = true;
 
     // Рисуем связи
     const link = container.append('g')
@@ -219,9 +327,7 @@ export class GraphComponent implements OnInit {
       .data(d3Links)
       .enter()
       .append('line')
-      .attr('stroke', (d: { value: string; }) => this.getCompatibilityColor(d.value))
-      .attr('stroke-width', 2)
-      .attr('stroke-opacity', 0.7);
+      .attr('class', (d: { value: string; }) => 'link level-' + d.value);
 
     // Рисуем узлы
     const node = container.append('g')
@@ -231,12 +337,17 @@ export class GraphComponent implements OnInit {
       .append('circle')
       .attr('r', 15)
       .attr('fill', (d: { category: string; }) => this.getCategoryColor(d.category))
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 1.5)
+      .classed('selected', (d: Node) => this.selectedProducts.includes(d.id))
       .call(d3.drag<SVGCircleElement, Node>()
         .on('start', (event, d) => this.dragStarted(event, d))
         .on('drag', (event, d) => this.dragged(event, d))
-        .on('end', (event, d) => this.dragEnded(event, d)));
+        .on('end', (event, d) => this.dragEnded(event, d)))
+      // defaultPrevented - значит узел тащили, а не нажимали
+      .on('click', (event: PointerEvent, d: Node) => {
+        if (!event.defaultPrevented) {
+          this.zone.run(() => this.toggleProductSelection(d.id));
+        }
+      });
 
     // Рисуем текст с переносами
     const text = container.append('g')
@@ -245,9 +356,10 @@ export class GraphComponent implements OnInit {
       .enter()
       .append('g')
       .classed('text-node', true)
-      .call(this.wrapText, 60);
+      .classed('selected', (d: Node) => this.selectedProducts.includes(d.id))
+      .call(this.wrapText);
 
-    // Обновление позиций (при перетаскивании узла симуляция перезапускается)
+    // Обновление позиций: после расчёта раскладки и при перетаскивании узла
     const updatePositions = () => {
       link
         .attr('x1', (d: { source: { x: any; }; }) => d.source.x ?? 0)
@@ -263,13 +375,13 @@ export class GraphComponent implements OnInit {
         .attr('transform', (d: { x: any; y: any; }) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     };
     updatePositions();
-    this.simulation.on('tick', updatePositions);
+    this.updatePositions = updatePositions;
 
     this.fitToView();
   }
 
   // Масштаб и сдвиг, при которых все видимые узлы с подписями помещаются в контейнер. Крупнее 1:1 не увеличивает
-  private fitToView(): void {
+  fitToView(): void {
     const containerElement = document.getElementById('graph-container');
     const nodes = this.graph.nodes.filter(node => !node.hidden);
     if (!this.svg || !this.zoom || !containerElement?.clientWidth || !nodes.length) {
@@ -286,38 +398,31 @@ export class GraphComponent implements OnInit {
     const y0 = Math.min(...nodes.map(n => n.y ?? 0)) - 20;
     const y1 = Math.max(...nodes.map(n => n.y ?? 0)) + 55;
 
-    const scale = Math.min(1, width / (x1 - x0), height / (y1 - y0));
+    // Нижняя граница - та же, что у зума: иначе первый жест дёрнет граф к допустимому масштабу
+    const scale = Math.max(0.05, Math.min(1, width / (x1 - x0), height / (y1 - y0)));
     const transform = d3.zoomIdentity
       .translate(width / 2 - scale * (x0 + x1) / 2, height / 2 - scale * (y0 + y1) / 2)
       .scale(scale);
     this.svg.call(this.zoom.transform, transform);
   }
 
-  private wrapText(selection: any, width: number) {
+  // Подпись в несколько строк: по строке на слово
+  private wrapText(selection: any) {
     selection.each(function(this: SVGGElement, d: Node) {
-      const g = d3.select(this);
-      g.selectAll('*').remove();
-      
-      const words = d.name.split(/\s+/);
       const lineHeight = 1.1;
       const fontSize = 10;
-      let y = 25;
-      
-      let tspan = g.append('text')
+      const firstLineY = 25;
+
+      // Цвет и обводка подписи - в глобальных стилях, чтобы следовать теме
+      d3.select(this).append('text')
         .attr('text-anchor', 'middle')
         .attr('font-size', `${fontSize}px`)
-        .attr('fill', '#1c1f24')
-        // Белая обводка под буквами - подпись читается поверх линий
-        .attr('stroke', '#fff')
-        .attr('stroke-width', 3)
-        .attr('stroke-linejoin', 'round')
-        .attr('paint-order', 'stroke')
         .selectAll('tspan')
-        .data(words)
+        .data(d.name.split(/\s+/))
         .enter()
         .append('tspan')
         .attr('x', 0)
-        .attr('y', (_, i) => y + i * fontSize * lineHeight)
+        .attr('y', (_, i) => firstLineY + i * fontSize * lineHeight)
         .text(word => word);
     });
   }
@@ -330,17 +435,8 @@ export class GraphComponent implements OnInit {
   toggleFilter(color: string): void {
     const key = `show${color.charAt(0).toUpperCase()}${color.slice(1)}` as keyof FilterOptions;
     this.filter[key] = !this.filter[key];
+    this.saveSettings();
     this.applyFilter();
-  }
-
-  getCompatibilityColor(value: string): string {
-    const colors = {
-      red: '#e03131',
-      yellow: '#f0a800',
-      green: '#2f9e44',
-      blue: '#3b5bdb'
-    };
-    return colors[value as keyof typeof colors] || '#cccccc';
   }
 
   getCategoryColor(category: string): string {
@@ -353,17 +449,18 @@ export class GraphComponent implements OnInit {
       'Орехи': '#8d6e63',
       'Гастро': '#576574',
       'Напитки': '#54a0ff',
-      'Десерт': '#c49c9cff',
+      'Десерт': '#c49c9c',
       'Цветы': '#f368e0',
-      'Растения': '#0c830cff',
+      'Растения': '#0c830c',
       'Овощи': '#5f27cd',
       'Без категории': '#8395a7'
     };
     return colors[category as keyof typeof colors] || '#8395a7';
   }
 
+  // Перетаскивание двигает только сам узел: пересчёт всех сил на каждый кадр жеста
+  // на большом графе давал считанные кадры в секунду, а раскладка теряла привычный вид
   private dragStarted(event: d3.D3DragEvent<SVGCircleElement, Node, unknown>, d: Node): void {
-    if (!event.active && this.simulation) this.simulation.alphaTarget(0.3).restart();
     d.fx = d.x;
     d.fy = d.y;
   }
@@ -371,10 +468,12 @@ export class GraphComponent implements OnInit {
   private dragged(event: d3.D3DragEvent<SVGCircleElement, Node, unknown>, d: Node): void {
     d.fx = event.x;
     d.fy = event.y;
+    d.x = event.x;
+    d.y = event.y;
+    this.updatePositions?.();
   }
 
   private dragEnded(event: d3.D3DragEvent<SVGCircleElement, Node, unknown>, d: Node): void {
-    if (!event.active && this.simulation) this.simulation.alphaTarget(0);
     d.fx = null;
     d.fy = null;
   }
@@ -408,13 +507,13 @@ toggleProductSelection(product: string): void {
 get filteredGroups() {
   if (!this.searchTerm) return this.groupedProducts;
 
-  const term = this.searchTerm.toLowerCase();
+  const term = this.searchTerm.trim().toLowerCase().replace(/ё/g, 'е');
   return this.groupedProducts
     .map(group => ({
       ...group,
       items: group.items.filter(item =>
-        item.toLowerCase().includes(term) ||
-        group.category.toLowerCase().includes(term)
+        item.toLowerCase().replace(/ё/g, 'е').includes(term) ||
+        group.category.toLowerCase().replace(/ё/g, 'е').includes(term)
       )
     }))
     .filter(group => group.items.length > 0);
