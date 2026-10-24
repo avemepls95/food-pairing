@@ -87,99 +87,24 @@
   </section>
 
   <footer class="backup">
-    <button type="button" class="btn" [disabled]="!mixes.length" (click)="exportBackup()">Сохранить копию</button>
+    <button type="button" class="btn" [disabled]="!canExport" (click)="exportBackup()">Сохранить копию</button>
     <label class="btn import">
       Загрузить копию
       <input type="file" accept="application/json,.json" class="visually-hidden" (change)="importBackup($event)">
     </label>
     <p class="hint status" role="status">{{ status }}</p>
     <p class="hint">
-      Миксы хранятся в этом браузере. Сохраняйте копию, чтобы вернуть список после чистки браузера или перенести
-      на другое устройство. У приложения с домашнего экрана свой список, загрузите копию и в него.
+      Полка и миксы хранятся в этом браузере. Сохраняйте копию, чтобы вернуть списки после чистки браузера
+      или перенести на другое устройство. У приложения с домашнего экрана свои списки, загрузите копию и в него.
     </p>
   </footer>
 </main>
 
-<dialog #formDialog class="dialog" aria-labelledby="dialog-title" (close)="draft = undefined"
-        (pointerdown)="onDialogPointerDown($event)" (click)="onDialogClick($event)">
-  @if (draft; as draft) {
-    <div class="dialog-head">
-      <h2 id="dialog-title">{{ isNewMix ? 'Новый микс' : 'Изменить микс' }}</h2>
-      <button type="button" class="icon-btn" aria-label="Закрыть" (click)="closeDialog()">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
-             stroke-linecap="round" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18"/>
-        </svg>
-      </button>
-    </div>
+<app-mix-form (saved)="onSaved($event)"></app-mix-form>
 
-    <div class="dialog-body">
-      <input type="text" class="input" [(ngModel)]="draft.name" placeholder="Название (необязательно)"
-             aria-label="Название микса" maxlength="80" autocomplete="off" autocorrect="off" spellcheck="false"
-             enterkeyhint="done" (keydown.enter)="saveDraft()">
-
-      <div class="segmented" role="group" aria-label="Категория">
-        <button type="button" [class.active]="draft.category === 'tried'"
-                [attr.aria-pressed]="draft.category === 'tried'" (click)="setCategory('tried')">Попробовал</button>
-        <button type="button" [class.active]="draft.category === 'planned'"
-                [attr.aria-pressed]="draft.category === 'planned'" (click)="setCategory('planned')">В планах</button>
-      </div>
-
-      @if (draft.category === 'tried') {
-        <div class="field">
-          <span class="section-label">Оценка</span>
-          <div class="stars big" role="group" aria-label="Оценка от 1 до 5">
-            @for (star of stars; track star) {
-              <button type="button" class="star" [class.on]="(draft.rating ?? 0) >= star"
-                      [attr.aria-label]="star + ' из 5'" [attr.aria-pressed]="draft.rating === star"
-                      (click)="draft.rating = star">
-                <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-                  <path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.7l5.8-.8z"/>
-                </svg>
-              </button>
-            }
-          </div>
-        </div>
-      }
-
-      <div class="field">
-        <span class="section-label">Состав</span>
-        @for (item of draft.items; track $index) {
-          <div class="item-row">
-            <input type="text" class="input" [(ngModel)]="item.brand" placeholder="Бренд"
-                   [attr.aria-label]="'Бренд, вкус ' + ($index + 1)" maxlength="40" autocomplete="off"
-                   autocorrect="off" spellcheck="false" enterkeyhint="done" (keydown.enter)="saveDraft()">
-            <input type="text" class="input" #flavorInput [(ngModel)]="item.flavor" placeholder="Вкус"
-                   [attr.aria-label]="'Вкус ' + ($index + 1)" maxlength="40" autocomplete="off"
-                   autocorrect="off" spellcheck="false" enterkeyhint="done" (keydown.enter)="saveDraft()">
-            <button type="button" class="icon-btn" [attr.aria-label]="'Убрать вкус ' + ($index + 1)"
-                    [disabled]="draft.items.length <= minItems" (click)="removeItem($index)">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
-                   stroke-linecap="round" aria-hidden="true">
-                <path d="M6 6l12 12M18 6L6 18"/>
-              </svg>
-            </button>
-          </div>
-        }
-        <button type="button" class="btn add-item" (click)="addItem()">Добавить вкус</button>
-      </div>
-    </div>
-
-    <div class="dialog-actions">
-      @if (draftProblem) {
-        <p class="hint problem">{{ draftProblem }}</p>
-      }
-      <div class="dialog-buttons">
-        <button type="button" class="btn" (click)="closeDialog()">Отмена</button>
-        <button type="button" class="btn btn-primary" [disabled]="!draftValid" (click)="saveDraft()">Сохранить</button>
-      </div>
-    </div>
-  }
-</dialog>
-
-<!-- Пробелов внутри span нет: при переносе строки разделитель уходит вместе со своим вкусом -->
+<!-- Пробелов внутри span нет: при переносе строки разделитель уходит вместе со своей позицией -->
 <ng-template #flavorList let-mix>
   @for (item of mix.items; track $index) {
-    <span>@if (item.brand) {<span class="brand">{{ item.brand }}</span>}{{ item.flavor }}</span>
+    <span>@if (item.share) {<span class="share">{{ item.share }}%</span>}@if (item.brand) {<span class="brand">{{ item.brand }}</span>}{{ itemTitle(item) }}</span>
   }
 </ng-template>

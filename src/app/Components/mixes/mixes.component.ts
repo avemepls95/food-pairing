@@ -1,37 +1,44 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { afterNextRender, Component, ElementRef, inject, Injector, OnInit, viewChild, viewChildren } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { afterNextRender, Component, ElementRef, inject, Injector, OnInit, viewChild } from '@angular/core';
+import { GraphDataService } from '../../Core/graph/graph-data.service';
+import { newId } from '../../Core/library/id';
+import { LibraryStore } from '../../Core/library/library-store';
+import { itemTitle, Mix, MixCategory, mixTitle } from '../../Core/library/mix';
+import { MixFormComponent } from '../mix-form/mix-form.component';
 import { NavComponent } from '../nav/nav.component';
-import { isMixValid, Mix, MixCategory, MIX_MIN_ITEMS, newMixId } from './mix';
-import { MixesStore } from './mixes-store';
 
 @Component({
   selector: 'app-mixes',
-  imports: [FormsModule, NavComponent, NgTemplateOutlet],
+  imports: [MixFormComponent, NavComponent, NgTemplateOutlet],
   templateUrl: './mixes.component.html',
   styleUrl: './mixes.component.css'
 })
 export class MixesComponent implements OnInit {
-  private store = inject(MixesStore);
+  private store = inject(LibraryStore);
+  private data = inject(GraphDataService);
   private injector = inject(Injector);
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private formDialog = viewChild.required<ElementRef<HTMLDialogElement>>('formDialog');
-  private flavorInputs = viewChildren<ElementRef<HTMLInputElement>>('flavorInput');
-  private pressedOnBackdrop = false;
+  private form = viewChild.required(MixFormComponent);
 
   readonly stars = [1, 2, 3, 4, 5];
-  readonly minItems = MIX_MIN_ITEMS;
+  readonly itemTitle = itemTitle;
 
   mixes: Mix[] = [];
   tab: MixCategory = 'tried';
   bestFirst = true;
-  draft: Mix | undefined;
-  isNewMix = false;
   justSavedId = '';
   status = '';
 
-  ngOnInit(): void {
-    this.mixes = this.store.list();
+  async ngOnInit(): Promise<void> {
+    // Справочник нужен, чтобы вкусы старых записей сошлись с графом
+    await this.data.load().catch(() => undefined);
+    this.store.load(text => this.data.canonical(text));
+    this.mixes = this.store.mixes();
+  }
+
+  /** В копию уходит и полка, поэтому пустой список миксов выгрузку не отменяет */
+  get canExport(): boolean {
+    return !!this.mixes.length || !!this.store.jars().length;
   }
 
   get visibleMixes(): Mix[] {
@@ -51,94 +58,29 @@ export class MixesComponent implements OnInit {
   }
 
   title(mix: Mix): string {
-    return mix.name || mix.items.map(item => item.flavor).join(' + ');
+    return mixTitle(mix);
   }
 
   addMix(): void {
-    this.isNewMix = true;
-    this.openDialog({
-      id: newMixId(),
-      items: [{ flavor: '' }, { flavor: '' }],
+    this.form().open({
+      id: newId(),
+      items: [{ flavors: [] }, { flavors: [] }],
       category: this.tab,
       updatedAt: new Date().toISOString()
-    });
+    }, true);
   }
 
   editMix(mix: Mix): void {
-    this.isNewMix = false;
-    this.openDialog({ ...mix, items: mix.items.map(item => ({ ...item })) });
+    this.form().open({ ...mix, items: mix.items.map(item => ({ ...item, flavors: [...item.flavors] })) }, false);
   }
 
-  closeDialog(): void {
-    this.formDialog().nativeElement.close();
-    this.draft = undefined;
-  }
-
-  /**
-   * Нажатие мимо содержимого формы закрывает её. Отпускание кнопки мыши проверяем тоже,
-   * чтобы выделение текста, законченное над фоном, форму оставило открытой.
-   */
-  onDialogPointerDown(event: PointerEvent): void {
-    this.pressedOnBackdrop = this.isOutsideForm(event);
-  }
-
-  onDialogClick(event: MouseEvent): void {
-    if (this.pressedOnBackdrop && this.isOutsideForm(event)) {
-      this.closeDialog();
-    }
-    this.pressedOnBackdrop = false;
-  }
-
-  addItem(): void {
-    this.draft?.items.push({ flavor: '' });
-    // Новая строка появляется под липким футером, поэтому переводим фокус на неё
-    afterNextRender(() => this.flavorInputs().at(-1)?.nativeElement.focus(), { injector: this.injector });
-  }
-
-  removeItem(index: number): void {
-    this.draft?.items.splice(index, 1);
-  }
-
-  setCategory(category: MixCategory): void {
-    if (this.draft) {
-      this.draft.category = category;
-    }
-  }
-
-  get draftValid(): boolean {
-    return !!this.draft && isMixValid(this.draft);
-  }
-
-  /** Чего не хватает, чтобы сохранить */
-  get draftProblem(): string {
-    if (!this.draft || this.draftValid) {
-      return '';
-    }
-    const filled = this.draft.items.filter(item => item.flavor.trim()).length;
-    return filled < this.minItems
-      ? `Нужно ещё ${this.minItems - filled} вкус${this.minItems - filled > 1 ? 'а' : ''}`
-      : 'Поставьте оценку';
-  }
-
-  saveDraft(): void {
-    if (!this.draft || !this.draftValid) {
-      return;
-    }
-    const draft = this.draft;
-    this.store.save({
-      ...draft,
-      name: draft.name?.trim() || undefined,
-      rating: draft.category === 'tried' ? draft.rating : undefined,
-      items: draft.items
-        .filter(item => item.flavor.trim())
-        .map(item => ({ brand: item.brand?.trim() || undefined, flavor: item.flavor.trim() }))
-    });
-    this.tab = draft.category;
+  onSaved(mix: Mix): void {
+    this.store.saveMix(mix);
+    this.tab = mix.category;
     // Класс снимаем по таймеру, чтобы подсветка не повторилась при возврате на вкладку
-    this.justSavedId = draft.id;
+    this.justSavedId = mix.id;
     setTimeout(() => (this.justSavedId = ''), 1500);
-    this.mixes = this.store.list();
-    this.closeDialog();
+    this.mixes = this.store.mixes();
     // При сортировке по оценке микс может уехать далеко от начала списка
     afterNextRender(() => this.host.nativeElement.querySelector('.just-saved')?.scrollIntoView({ block: 'nearest' }),
       { injector: this.injector });
@@ -146,8 +88,8 @@ export class MixesComponent implements OnInit {
 
   removeMix(mix: Mix): void {
     if (confirm(`Удалить микс "${this.title(mix)}"?`)) {
-      this.store.remove(mix.id);
-      this.mixes = this.store.list();
+      this.store.removeMix(mix.id);
+      this.mixes = this.store.mixes();
       this.status = '';
     }
   }
@@ -157,13 +99,13 @@ export class MixesComponent implements OnInit {
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `mixes-${new Date().toLocaleDateString('sv')}.json`;
+    link.download = `food-pairing-${new Date().toLocaleDateString('sv')}.json`;
     // Safari скачивает по такой ссылке, только если она есть в документе, и начинает загрузку не сразу
     document.body.append(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    this.status = `Копия сохранена, миксов: ${this.mixes.length}`;
+    this.status = `Копия сохранена: банок ${this.store.jars().length}, миксов ${this.mixes.length}`;
   }
 
   async importBackup(event: Event): Promise<void> {
@@ -175,33 +117,27 @@ export class MixesComponent implements OnInit {
     }
 
     try {
-      const { mixes, skipped } = this.store.parseBackup(await file.text());
+      const { jars, mixes, skipped, mixesOnly } = this.store.parseBackup(await file.text());
       const skippedNote = skipped
-        ? `\nПропущено записей: ${skipped}. В них меньше двух вкусов или нет оценки.`
+        ? `\nПропущено записей: ${skipped}. В них меньше двух позиций, нет оценки или нет вкусов.`
         : '';
-      if (confirm(`Заменить текущий список (${this.mixes.length}) на миксы из файла (${mixes.length})?${skippedNote}`)) {
-        this.store.replaceAll(mixes);
-        this.mixes = this.store.list();
+      const what = mixesOnly
+        ? `миксы из файла (${mixes.length}), полка останется на месте`
+        : `полку (${jars.length}) и миксы (${mixes.length})`;
+      if (confirm(`Заменить ${what}?${skippedNote}`)) {
+        if (mixesOnly) {
+          this.store.replaceMixes(mixes);
+        } else {
+          this.store.replaceAll({ jars, mixes });
+        }
+        this.mixes = this.store.mixes();
         if (!this.count(this.tab)) {
           this.tab = this.tab === 'tried' ? 'planned' : 'tried';
         }
-        this.status = `Загружено миксов: ${mixes.length}`;
+        this.status = `Загружено: банок ${this.store.jars().length}, миксов ${mixes.length}`;
       }
     } catch (error) {
       this.status = (error as Error).message;
     }
-  }
-
-  private isOutsideForm(event: MouseEvent): boolean {
-    const box = this.formDialog().nativeElement.getBoundingClientRect();
-    return event.clientX < box.left || event.clientX > box.right
-      || event.clientY < box.top || event.clientY > box.bottom;
-  }
-
-  private openDialog(draft: Mix): void {
-    this.status = '';
-    this.pressedOnBackdrop = false;
-    this.draft = draft;
-    this.formDialog().nativeElement.showModal();
   }
 }

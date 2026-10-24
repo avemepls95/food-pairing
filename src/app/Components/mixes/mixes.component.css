@@ -126,8 +126,12 @@
   content: " •\00a0";
 }
 
-.brand {
+.brand, .share {
   color: var(--muted);
+}
+
+.share::after {
+  content: "\00a0";
 }
 
 .mix-title .brand {
@@ -138,97 +142,10 @@
   content: " ";
 }
 
-.stars {
-  display: flex;
-  gap: 1px;
-  flex-shrink: 0;
-}
-
-.star {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--star-off);
-  line-height: 0;
-}
-
-/* Незажжённая звезда - контур, зажжённая - заливка: оценка видна не только по цвету.
-   Класс .star стоит и на значке в карточке, и на кнопке в форме */
-.star, .star svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linejoin: round;
-}
-
-.star.on {
-  color: var(--star-on);
-}
-
-.star.on, .star.on svg {
-  fill: currentColor;
-  stroke: none;
-}
-
-.stars.big {
-  gap: 0;
-}
-
-.stars.big .star {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  cursor: pointer;
-  transition: transform 0.12s;
-}
-
-@media (hover: hover) {
-  .stars.big .star:hover {
-    transform: scale(1.12);
-  }
-}
-
-.stars.big .star:active {
-  transform: scale(0.92);
-}
-
 .mix-actions {
   display: flex;
   gap: 6px;
   align-self: center;
-}
-
-.icon-btn {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background-color 0.15s, color 0.15s, opacity 0.15s;
-}
-
-/* Только при наличии мыши: на тач-экране ховер залипает после тапа */
-@media (hover: hover) {
-  .icon-btn:hover:not(:disabled) {
-    background: var(--surface-hover);
-    color: var(--text);
-  }
-}
-
-.icon-btn:active:not(:disabled) {
-  background: var(--surface-hover);
-  color: var(--text);
-  transform: scale(0.94);
-}
-
-.icon-btn:disabled {
-  color: var(--border-strong);
-  cursor: default;
 }
 
 @media (hover: hover) {
@@ -291,149 +208,8 @@
   flex-basis: 100%;
 }
 
-/* Форма микса */
-
-.dialog {
-  /* Браузер сам ограничивает ширину модального окна, поэтому задаём её явно */
-  width: 100%;
-  max-width: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* Поле, к которому браузер прокручивает форму сам, не должно уехать под липкую шапку или подвал */
-  scroll-padding: 72px 0 96px;
-  max-height: 90dvh;
-  padding: 0;
-  border: 0;
-  border-radius: 20px 20px 0 0;
-  margin: auto auto 0;
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow-lifted);
-}
-
-.dialog::backdrop {
-  background: rgb(16 24 40 / 45%);
-}
-
-/* Открывая форму, браузер ставит фокус на само окно, и рамка обводит весь лист */
-.dialog:focus-visible {
-  outline: none;
-}
-
-/* Анимация только на появление: при закрытии форма пропадает из разметки сразу */
-.dialog[open] {
-  animation: sheet-in 0.2s ease-out;
-}
-
-.dialog[open]::backdrop {
-  animation: fade-in 0.2s ease-out;
-}
-
-@keyframes sheet-in {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-}
-
-/* Прокручивается само окно: высота содержимого через flex в разных движках считается по-разному */
-.dialog-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--surface);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 10px 10px 16px;
-}
-
-.dialog-head h2 {
-  flex: 1;
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 0 16px 16px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.item-row {
-  display: grid;
-  /* Названия вкусов длиннее названий брендов, поэтому вкусу места больше */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
-  gap: 6px;
-}
-
-.add-item {
-  align-self: start;
-  min-height: 38px;
-}
-
-.dialog-actions {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.dialog-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.problem {
-  text-align: center;
-}
-
-/* В альбомной ориентации липкие шапка и подвал съедают почти всю высоту формы */
-@media (max-height: 500px) {
-  .dialog {
-    max-height: 100dvh;
-  }
-
-  .dialog-head, .dialog-actions {
-    position: static;
-  }
-}
-
-@media (min-width: 600px) {
-  .dialog {
-    width: 520px;
-    max-width: calc(100% - 32px);
-    border-radius: 20px;
-    margin: auto;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .mix, .stars.big .star {
+  .mix {
     transition: none;
-  }
-
-  .dialog[open], .dialog[open]::backdrop {
-    animation: none;
   }
 }

@@ -1,0 +1,171 @@
+<main class="page">
+  <header class="topbar">
+    <h1 class="visually-hidden">Подбор миксов</h1>
+    <app-nav></app-nav>
+  </header>
+
+  @if (loadError) {
+    <p class="hint note" role="status">{{ loadError }}</p>
+  } @else if (!enoughJars) {
+    <section class="card empty">
+      <p>Подбор собирает миксы из того, что стоит на полке.</p>
+      <p class="hint">
+        {{ jars.length ? 'На полке одна банка, нужна хотя бы вторая' : 'Полка пока пуста' }}
+      </p>
+      <a class="btn btn-primary" href="#/shelf">Открыть полку</a>
+    </section>
+  } @else {
+    <section class="card controls">
+      <div class="field">
+        <span class="section-label">Сколько банок в миксе?</span>
+        <div class="segmented counts" role="group" aria-label="Число банок в миксе">
+          @for (count of jarCounts; track count) {
+            <button type="button" [class.active]="answered && jarCount === count"
+                    [attr.aria-pressed]="answered && jarCount === count" (click)="setJarCount(count)">
+              {{ countLabel(count) }}
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (answered) {
+        <div class="field">
+          <span class="section-label">Какие миксы показывать</span>
+          <div class="segmented" role="group" aria-label="Режим подбора">
+            @for (mode of risks; track mode.value) {
+              <button type="button" [class.active]="risk === mode.value" [attr.aria-pressed]="risk === mode.value"
+                      (click)="setRisk(mode.value)">{{ mode.label }}</button>
+            }
+          </div>
+        </div>
+
+        @if (hasRatings) {
+          <label class="personal">
+            <input type="checkbox" [checked]="usePersonal" (change)="togglePersonal()">
+            <span>Учитывать мои оценки</span>
+          </label>
+        }
+      }
+    </section>
+
+    @if (!answered) {
+      <p class="hint ask">Выберите число банок, и подбор соберёт миксы. «Неважно» значит, что число выберет сам подбор.</p>
+    }
+
+    @if (calculating) {
+      <p class="hint" role="status">Считаю...</p>
+    }
+
+    @if (result; as result) {
+      @for (shelf of result.shelves; track shelf.jarCount) {
+        <section class="shelf">
+          <header class="shelf-head">
+            @if (jarCount === 'any') {
+              <button type="button" class="shelf-toggle" [attr.aria-expanded]="isExpanded(shelf)"
+                      (click)="toggleShelf(shelf)">
+                <svg viewBox="0 0 24 24" width="16" height="16" class="chevron" [class.open]="isExpanded(shelf)"
+                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6"/>
+                </svg>
+                {{ shelfTitle(shelf) }}
+                @if (shelf.items.length) {
+                  <span class="badge">{{ shelf.items[0].score }}</span>
+                }
+                @if (result.chosen === shelf.jarCount) {
+                  <span class="chosen">выбор подбора</span>
+                }
+              </button>
+            } @else {
+              <h2 class="shelf-title">{{ shelfTitle(shelf) }}</h2>
+            }
+          </header>
+
+          @if (isExpanded(shelf)) {
+            @if (shelf.relaxed && shelf.items.length) {
+              <p class="hint note" role="status">
+                Под режим «{{ riskNames[risk] }}» миксов не набралось, показаны {{ riskNames[shelf.risk] }}
+              </p>
+            }
+
+            @for (item of shelf.items; track item.jarIds.join('+')) {
+              <article class="card pick">
+                <div class="pick-head">
+                  <div class="pick-title">
+                    <h3>
+                      @for (component of item.components; track component.jar.id; let first = $first) {
+                        <span class="part">@if (!first) {<span class="plus">+</span>}{{ componentTitle(component.jar) }}</span>
+                      }
+                    </h3>
+                    <p class="reason hint">{{ reason(item) }}</p>
+                  </div>
+                  <div class="score" [attr.aria-label]="'Балл ' + item.score + ' из 100'">{{ item.score }}</div>
+                </div>
+
+                <ul class="components">
+                  @for (component of item.components; track component.jar.id) {
+                    <li>
+                      <span class="share">{{ component.share }}%</span>
+                      <span class="role">{{ roleLabel(component.role) }}</span>
+                      @if (component.jar.brand) {
+                        <span class="brand">{{ component.jar.brand }}</span>
+                      }
+                      <span class="flavors">{{ component.jar.flavors.join(' + ') }}</span>
+                    </li>
+                  }
+                </ul>
+
+                <div class="pairs">
+                  @for (pair of item.pairs; track pair.a + pair.b) {
+                    <span class="pair">
+                      <span class="dot {{ levelClass(pair.level) }}"></span>{{ pair.a }} и {{ pair.b }}
+                    </span>
+                  }
+                </div>
+
+                <div class="marks">
+                  @if (item.thinData) {
+                    <span class="mark">мало данных</span>
+                  }
+                  @if (item.planned) {
+                    <span class="mark planned">в планах</span>
+                  }
+                </div>
+
+                <div class="pick-actions">
+                  <button type="button" class="btn" [disabled]="item.planned"
+                          (click)="addToPlanned(item)">В планы</button>
+                  <button type="button" class="btn btn-primary" (click)="openTriedForm(item)">Попробовал</button>
+                </div>
+              </article>
+            } @empty {
+              <p class="hint empty-shelf">
+                @if (shelf.total) {
+                  Все миксы из {{ shelf.jarCount }} банок уже в журнале
+                } @else {
+                  Миксов из {{ shelf.jarCount }} банок не нашлось: нужных пар на полке нет
+                }
+              </p>
+            }
+
+            @if (shelf.skippedTried) {
+              <p class="hint skipped">Уже попробовано и скрыто: {{ shelf.skippedTried }}</p>
+            }
+          }
+        </section>
+      }
+
+      @if (!result.shelves.length) {
+        <p class="hint note" role="status">
+          Банок на полке: {{ jars.length }}. Для микса из {{ jarCount }} нужно больше
+        </p>
+      }
+
+      @if (canShowMore) {
+        <button type="button" class="btn show-more" (click)="showMore()">Показать ещё</button>
+      }
+    }
+  }
+</main>
+
+<app-mix-form (saved)="onSaved($event)"></app-mix-form>

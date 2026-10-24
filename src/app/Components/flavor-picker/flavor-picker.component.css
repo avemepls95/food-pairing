@@ -1,0 +1,84 @@
+:host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.search {
+  flex-shrink: 0;
+}
+
+.product-list {
+  flex: 1;
+  min-height: 0;
+  margin-top: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.category-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 4px 4px;
+  background: var(--surface);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.product-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.product-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.product-item:has(input:checked) {
+  font-weight: 600;
+}
+
+.product-item input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--text);
+}
+
+.empty {
+  padding: 12px 4px;
+}
+
+/* Ховер только с мышью: на тач-экране он залипает после тапа */
+@media (hover: hover) {
+  .product-item:hover {
+    background: var(--surface-hover);
+  }
+}
+
+.product-item:active {
+  background: var(--surface-hover);
+}
+
+/* Класс flat просит список не заводить свою прокрутку: на невысоком экране панель графа
+   прокручивается целиком, одним блоком */
+@media (max-height: 780px) {
+  :host(.flat) .product-list {
+    min-height: 0;
+    overflow: visible;
+  }
+}

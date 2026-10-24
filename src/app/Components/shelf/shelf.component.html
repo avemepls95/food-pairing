@@ -1,0 +1,128 @@
+<main class="page">
+  <header class="topbar">
+    <h1 class="visually-hidden">Полка</h1>
+    <app-nav></app-nav>
+    <button type="button" class="btn btn-primary" (click)="addJar()">Добавить банку</button>
+  </header>
+
+  @if (loadError) {
+    <p class="hint note" role="status">{{ loadError }}</p>
+  }
+
+  <div class="workspace">
+    <section class="card picker-card">
+      <div class="picker-head">
+        <span class="section-label">Мои вкусы</span>
+        <span class="hint">банок {{ jars.length }}, вкусов {{ flavorCount }}</span>
+      </div>
+      <app-flavor-picker [groups]="groups()" [selected]="shelfFlavors"
+                         (toggled)="toggleFlavor($event)"></app-flavor-picker>
+      @if (status) {
+        <p class="hint status" role="status">{{ status }}</p>
+      }
+    </section>
+
+    <section class="list">
+      @for (jar of jars; track jar.id) {
+        <article class="card jar" (click)="editJar(jar)">
+          <div class="jar-head">
+            <h2 class="jar-title">
+              @if (jar.brand) {
+                <span class="brand">{{ jar.brand }}</span>
+              }
+              {{ title(jar) }}
+            </h2>
+
+            <div class="jar-actions" (click)="$event.stopPropagation()">
+              <button type="button" class="icon-btn" [attr.aria-label]="'Изменить банку ' + title(jar)"
+                      (click)="editJar(jar)">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 20h4l10-10-4-4L4 16z"/>
+                  <path d="M14 6l4 4"/>
+                </svg>
+              </button>
+              <button type="button" class="icon-btn" [attr.aria-label]="'Убрать с полки ' + title(jar)"
+                      (click)="removeJar(jar)">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          @if (jar.name || jar.flavors.length > 1) {
+            <p class="jar-flavors">
+              @for (flavor of jar.flavors; track flavor) {
+                <span class="flavor" [class.unknown]="!isKnown(flavor)">{{ flavor }}</span>
+              }
+            </p>
+          }
+        </article>
+      } @empty {
+        <div class="empty">
+          <p class="hint">Полка пуста. Отметьте вкусы, которые у вас есть, или добавьте банку с брендом и названием</p>
+        </div>
+      }
+    </section>
+  </div>
+</main>
+
+<dialog #formDialog class="dialog" aria-labelledby="jar-dialog-title" (close)="draft = undefined"
+        (pointerdown)="onDialogPointerDown($event)" (click)="onDialogClick($event)">
+  @if (draft; as draft) {
+    <div class="dialog-head">
+      <h2 id="jar-dialog-title">{{ isNewJar ? 'Новая банка' : 'Изменить банку' }}</h2>
+      <button type="button" class="icon-btn" aria-label="Закрыть" (click)="closeDialog()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="dialog-body">
+      <div class="jar-fields">
+        <input type="text" class="input" [(ngModel)]="draft.brand" placeholder="Бренд" aria-label="Бренд"
+               maxlength="40" autocomplete="off" autocorrect="off" spellcheck="false"
+               enterkeyhint="done" (keydown.enter)="saveDraft()">
+        <input type="text" class="input" [(ngModel)]="draft.name" placeholder="Название на банке"
+               aria-label="Название на банке" maxlength="40" autocomplete="off" autocorrect="off" spellcheck="false"
+               enterkeyhint="done" (keydown.enter)="saveDraft()">
+      </div>
+
+      <div class="field">
+        <span class="section-label">Вкусы</span>
+        @if (draft.flavors.length) {
+          <div class="flavor-chips">
+            @for (flavor of draft.flavors; track flavor) {
+              <button type="button" class="flavor-chip" [class.unknown]="!isKnown(flavor)"
+                      [title]="isKnown(flavor) ? '' : 'Нет в справочнике'"
+                      [attr.aria-label]="'Убрать вкус ' + flavor" (click)="toggleDraftFlavor(flavor)">
+                {{ flavor }}
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"
+                     stroke-linecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+              </button>
+            }
+          </div>
+        }
+        <app-flavor-picker class="picker" [groups]="groups()" [selected]="draft.flavors"
+                           (toggled)="toggleDraftFlavor($event)"></app-flavor-picker>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      @if (!draft.flavors.length) {
+        <p class="hint problem">Отметьте хотя бы один вкус</p>
+      }
+      <div class="dialog-buttons">
+        <button type="button" class="btn" (click)="closeDialog()">Отмена</button>
+        <button type="button" class="btn btn-primary" [disabled]="!draft.flavors.length"
+                (click)="saveDraft()">Сохранить</button>
+      </div>
+    </div>
+  }
+</dialog>

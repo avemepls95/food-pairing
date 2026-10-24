@@ -75,7 +75,7 @@
   display: none;
 }
 
-.legend, .mode, .search {
+.legend, .mode {
   flex-shrink: 0;
 }
 
@@ -214,60 +214,6 @@
   flex-direction: column;
 }
 
-.product-list {
-  flex: 1;
-  min-height: 0;
-  margin-top: 8px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.category-title {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 10px 4px 4px;
-  background: var(--surface);
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.product-items {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-}
-
-.product-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  padding: 0 6px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.product-item:has(input:checked) {
-  font-weight: 600;
-}
-
-.product-item input {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  flex-shrink: 0;
-  accent-color: var(--text);
-}
-
-.empty {
-  padding: 12px 4px;
-}
-
 .clear-btn {
   flex-shrink: 0;
   margin-top: 10px;
@@ -359,7 +305,7 @@
 
 /* Ховер только с мышью: на тач-экране он залипает после тапа */
 @media (hover: hover) {
-  .filters-toggle:hover, .selected-chip:hover, .chip:hover, .product-item:hover, .tool-btn:hover {
+  .filters-toggle:hover, .selected-chip:hover, .chip:hover, .tool-btn:hover {
     background: var(--surface-hover);
   }
 
@@ -368,7 +314,7 @@
   }
 }
 
-.filters-toggle:active, .selected-chip:active, .chip:active, .product-item:active, .tool-btn:active {
+.filters-toggle:active, .selected-chip:active, .chip:active, .tool-btn:active {
   background: var(--surface-hover);
 }
 
@@ -407,11 +353,6 @@
 
   .products {
     flex: none;
-  }
-
-  .product-list {
-    min-height: 0;
-    overflow: visible;
   }
 
   .clear-btn {

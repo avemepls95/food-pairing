@@ -24,6 +24,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test
       # Сайт лежит не в корне домена, а в /food-pairing/
       - run: npx ng build --base-href /food-pairing/
       - uses: actions/upload-pages-artifact@v5

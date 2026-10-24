@@ -96,32 +96,8 @@
       </section>
 
       <section class="products">
-        <input type="search" class="search input" [(ngModel)]="searchTerm"
-               placeholder="Поиск продукта" aria-label="Поиск продукта"
-               autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
-
-        <div class="product-list">
-          @for (group of filteredGroups; track group.category) {
-            <div class="category-group">
-              <h2 class="category-title">
-                <span class="dot" [style.background]="getCategoryColor(group.category)"></span>
-                {{ group.category }}
-              </h2>
-              <div class="product-items">
-                @for (item of group.items; track item) {
-                  <label class="product-item">
-                    <input type="checkbox"
-                           [checked]="selectedProducts.includes(item)"
-                           (change)="toggleProductSelection(item)">
-                    <span>{{ item }}</span>
-                  </label>
-                }
-              </div>
-            </div>
-          } @empty {
-            <p class="hint empty">Ничего не найдено</p>
-          }
-        </div>
+        <app-flavor-picker class="flat" placeholder="Поиск продукта" [groups]="groupedProducts" [selected]="selectedProducts"
+                           (toggled)="toggleProductSelection($event)"></app-flavor-picker>
 
         <button type="button" class="clear-btn btn" [disabled]="!selectedProducts.length"
                 (click)="selectedProducts = []; applyFilter()">

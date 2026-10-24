@@ -1,8 +1,10 @@
 import { Component, ElementRef, HostListener, inject, NgZone, OnDestroy, OnInit, viewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import * as d3 from 'd3';
 import { NavComponent } from '../nav/nav.component';
-import { buildGraph, GraphLink, GraphNode, Level, PairingTable, Product } from './graph-data';
+import { categoryColor } from '../../Core/graph/categories';
+import { FlavorGroup, GraphLink, GraphNode, Level } from '../../Core/graph/graph-data';
+import { GraphDataService } from '../../Core/graph/graph-data.service';
+import { FlavorPickerComponent } from '../flavor-picker/flavor-picker.component';
 
 interface Node extends GraphNode, d3.SimulationNodeDatum {
   hidden?: boolean;
@@ -16,38 +18,24 @@ interface SimLink extends d3.SimulationLinkDatum<Node> {
 
 type Mode = 'strict' | 'extended';
 
+/** Бледные связи на графе не показываются, фильтра по цвету у них нет */
+type VisibleLevel = Exclude<Level, 'pale'>;
+
 type LinkSelection = d3.Selection<SVGLineElement, SimLink, SVGGElement, unknown>;
 type NodeSelection = d3.Selection<SVGCircleElement, Node, SVGGElement, unknown>;
 type LabelSelection = d3.Selection<SVGGElement, Node, SVGGElement, unknown>;
 
 const SETTINGS_KEY = 'food-pairing.graph-settings';
 
-const CATEGORY_COLORS: Record<string, string> = {
-  'Ягоды': '#ff6b6b',
-  'Цитрус': '#feca57',
-  'Фрукты': '#1dd1a1',
-  'Травы': '#6ab04c',
-  'Специи': '#e67e22',
-  'Орехи': '#8d6e63',
-  'Гастро': '#576574',
-  'Напитки': '#54a0ff',
-  'Десерт': '#c49c9c',
-  'Цветы': '#f368e0',
-  'Растения': '#0c830c',
-  'Овощи': '#5f27cd',
-  'Без категории': '#8395a7'
-};
-
-const DEFAULT_CATEGORY_COLOR = '#8395a7';
-
 @Component({
   selector: 'app-graph',
-  imports: [FormsModule, NavComponent],
+  imports: [FlavorPickerComponent, NavComponent],
   templateUrl: './graph.component.html',
   styleUrl: './graph.component.css'
 })
 export class GraphComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
+  private data = inject(GraphDataService);
   private graphContainer = viewChild.required<ElementRef<HTMLElement>>('graphContainer');
   private svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | undefined;
   private zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | undefined;
@@ -69,10 +57,9 @@ export class GraphComponent implements OnInit, OnDestroy {
   graph: { nodes: Node[]; links: GraphLink[] } = { nodes: [], links: [] };
   filteredLinks: GraphLink[] = [];
   selectedProducts: string[] = [];
-  searchTerm = '';
-  groupedProducts: { category: string; items: string[] }[] = [];
+  groupedProducts: FlavorGroup[] = [];
 
-  filter: Record<Level, boolean> = {
+  filter: Record<VisibleLevel, boolean> = {
     red: true,
     yellow: false,
     green: false,
@@ -80,7 +67,7 @@ export class GraphComponent implements OnInit, OnDestroy {
   };
 
   // По убыванию сочетаемости
-  readonly levels: { color: Level; label: string }[] = [
+  readonly levels: { color: VisibleLevel; label: string }[] = [
     { color: 'red', label: 'Красный' },
     { color: 'yellow', label: 'Жёлтый' },
     { color: 'green', label: 'Зелёный' },
@@ -94,25 +81,21 @@ export class GraphComponent implements OnInit, OnDestroy {
 
   async loadData(): Promise<void> {
     this.loadError = '';
-    let tables: PairingTable[];
-    let products: Product[];
     try {
-      [tables, products] = await Promise.all([
-        this.fetchJson<PairingTable[]>('data/tables.json'),
-        this.fetchJson<Product[]>('data/products.json')
-      ]);
+      const graph = await this.data.load();
+      // Пока грузились данные, со страницы могли уйти
+      if (this.destroyed) {
+        return;
+      }
+      // Координаты узлов пишет d3, поэтому страница работает со своими копиями
+      this.graph = { nodes: graph.nodes.map(node => ({ ...node })), links: graph.links };
+      this.groupedProducts = this.data.grouped();
     } catch (error) {
       console.error(error);
       this.loadError = 'Не удалось загрузить данные';
       return;
     }
 
-    // Пока грузились данные, со страницы могли уйти
-    if (this.destroyed) {
-      return;
-    }
-    this.graph = buildGraph(tables, products);
-    this.groupProducts();
     this.applyFilter(true);
 
     // Размер графа меняется при скрытии фильтров и повороте экрана
@@ -179,7 +162,8 @@ export class GraphComponent implements OnInit, OnDestroy {
   private updateNote(): void {
     const selected = new Set(this.selectedProducts);
     const hiddenByColor = selected.size
-      ? this.graph.links.filter(link => !this.shouldShowLink(link) && this.matchesSelection(link, selected)).length
+      ? this.graph.links.filter(link =>
+        link.value !== 'pale' && !this.shouldShowLink(link) && this.matchesSelection(link, selected)).length
       : 0;
 
     const parts: string[] = [];
@@ -209,11 +193,11 @@ export class GraphComponent implements OnInit, OnDestroy {
     this.applyFilter();
   }
 
-  getFilterValue(color: Level): boolean {
+  getFilterValue(color: VisibleLevel): boolean {
     return this.filter[color];
   }
 
-  toggleFilter(color: Level): void {
+  toggleFilter(color: VisibleLevel): void {
     this.filter[color] = !this.filter[color];
     this.saveSettings();
     this.applyFilter();
@@ -229,7 +213,7 @@ export class GraphComponent implements OnInit, OnDestroy {
   }
 
   getCategoryColor(category: string): string {
-    return CATEGORY_COLORS[category] ?? DEFAULT_CATEGORY_COLOR;
+    return categoryColor(category);
   }
 
   toggleProductSelection(product: string): void {
@@ -238,21 +222,6 @@ export class GraphComponent implements OnInit, OnDestroy {
       : [...this.selectedProducts, product];
 
     this.applyFilter();
-  }
-
-  get filteredGroups(): { category: string; items: string[] }[] {
-    if (!this.searchTerm) {
-      return this.groupedProducts;
-    }
-
-    const term = toSearchKey(this.searchTerm.trim());
-    return this.groupedProducts
-      .map(group => ({
-        ...group,
-        items: group.items.filter(item =>
-          toSearchKey(item).includes(term) || toSearchKey(group.category).includes(term))
-      }))
-      .filter(group => group.items.length > 0);
   }
 
   // Выбранные цвета и режим переживают перезагрузку, выбранные продукты - нет
@@ -284,16 +253,8 @@ export class GraphComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async fetchJson<T>(url: string): Promise<T> {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`${url}: ${response.status}`);
-    }
-    return response.json() as Promise<T>;
-  }
-
   private shouldShowLink(link: GraphLink): boolean {
-    return this.filter[link.value] ?? false;
+    return link.value !== 'pale' && this.filter[link.value];
   }
 
   private updateNodesVisibility(): void {
@@ -520,22 +481,4 @@ export class GraphComponent implements OnInit, OnDestroy {
     });
   }
 
-  private groupProducts(): void {
-    const categories = new Map<string, string[]>();
-
-    this.graph.nodes.forEach(node => {
-      const category = node.category || 'Без категории';
-      if (!categories.has(category)) {
-        categories.set(category, []);
-      }
-      categories.get(category)?.push(node.name);
-    });
-
-    this.groupedProducts = Array.from(categories.entries()).map(([category, items]) => ({
-      category,
-      items: items.sort((a, b) => a.localeCompare(b))
-    })).sort((a, b) => a.category.localeCompare(b.category));
-  }
 }
-
-const toSearchKey = (text: string): string => text.toLowerCase().replace(/ё/g, 'е');

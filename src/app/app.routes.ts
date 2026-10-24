@@ -8,6 +8,16 @@ export const routes: Routes = [
     loadComponent: () => import('./Components/graph/graph.component').then(m => m.GraphComponent)
   },
   {
+    path: 'shelf',
+    title: 'Полка - сочетания вкусов',
+    loadComponent: () => import('./Components/shelf/shelf.component').then(m => m.ShelfComponent)
+  },
+  {
+    path: 'picks',
+    title: 'Подбор миксов - сочетания вкусов',
+    loadComponent: () => import('./Components/picks/picks.component').then(m => m.PicksComponent)
+  },
+  {
     path: 'mixes',
     title: 'Миксы - сочетания вкусов',
     loadComponent: () => import('./Components/mixes/mixes.component').then(m => m.MixesComponent)

@@ -1,0 +1,125 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+
+.picker-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+app-flavor-picker {
+  max-height: 46dvh;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jar {
+  padding: 10px 10px 10px 14px;
+  cursor: pointer;
+}
+
+.jar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jar-title {
+  flex: 1;
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.jar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.brand {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.brand::after {
+  content: " ";
+}
+
+.jar-flavors {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.flavor + .flavor::before {
+  content: " ·\00a0";
+}
+
+/* Вкус, которого нет в справочнике: в подборе он не участвует */
+.flavor.unknown {
+  text-decoration: underline dashed;
+  text-underline-offset: 3px;
+}
+
+.empty {
+  padding: 18px 6px;
+  text-align: center;
+}
+
+.jar-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 6px;
+}
+
+.picker {
+  max-height: 40dvh;
+}
+
+@media (hover: hover) {
+  .jar:hover {
+    border-color: var(--border-strong);
+  }
+}
+
+@media (min-width: 900px) {
+  .workspace {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .picker-card {
+    flex: 1 1 420px;
+    position: sticky;
+    top: 10px;
+  }
+
+  .list {
+    flex: 1 1 340px;
+  }
+}

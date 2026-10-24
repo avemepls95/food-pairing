@@ -1,0 +1,104 @@
+<dialog #formDialog class="dialog" aria-labelledby="mix-dialog-title" (close)="draft = undefined"
+        (pointerdown)="onDialogPointerDown($event)" (click)="onDialogClick($event)">
+  @if (draft; as draft) {
+    <div class="dialog-head">
+      <h2 id="mix-dialog-title">{{ isNewMix ? 'Новый микс' : 'Изменить микс' }}</h2>
+      <button type="button" class="icon-btn" aria-label="Закрыть" (click)="close()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="dialog-body">
+      <input type="text" class="input" [(ngModel)]="draft.name" placeholder="Название (необязательно)"
+             aria-label="Название микса" maxlength="80" autocomplete="off" autocorrect="off" spellcheck="false"
+             enterkeyhint="done" (keydown.enter)="save()">
+
+      <div class="segmented" role="group" aria-label="Категория">
+        <button type="button" [class.active]="draft.category === 'tried'"
+                [attr.aria-pressed]="draft.category === 'tried'" (click)="setCategory('tried')">Попробовал</button>
+        <button type="button" [class.active]="draft.category === 'planned'"
+                [attr.aria-pressed]="draft.category === 'planned'" (click)="setCategory('planned')">В планах</button>
+      </div>
+
+      @if (draft.category === 'tried') {
+        <div class="field">
+          <span class="section-label">Оценка</span>
+          <div class="stars big" role="group" aria-label="Оценка от 1 до 5">
+            @for (star of stars; track star) {
+              <button type="button" class="star" [class.on]="(draft.rating ?? 0) >= star"
+                      [attr.aria-label]="star + ' из 5'" [attr.aria-pressed]="draft.rating === star"
+                      (click)="draft.rating = star">
+                <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+                  <path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.7l5.8-.8z"/>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="field">
+        <span class="section-label">Состав</span>
+        @for (item of draft.items; track $index) {
+          <div class="item-row" [class.picking]="pickerIndex === $index">
+            <div class="item-head">
+              <input type="text" class="input" [(ngModel)]="item.brand" placeholder="Бренд"
+                     [attr.aria-label]="'Бренд, позиция ' + ($index + 1)" maxlength="40" autocomplete="off"
+                     autocorrect="off" spellcheck="false" enterkeyhint="done" (keydown.enter)="save()">
+              <input type="text" class="input" [(ngModel)]="item.name" placeholder="Название"
+                     [attr.aria-label]="'Название табака, позиция ' + ($index + 1)" maxlength="40" autocomplete="off"
+                     autocorrect="off" spellcheck="false" enterkeyhint="done" (keydown.enter)="save()">
+              <input type="number" class="input share" [(ngModel)]="item.share" placeholder="%"
+                     [attr.aria-label]="'Доля в процентах, позиция ' + ($index + 1)" min="5" max="100" step="5"
+                     inputmode="numeric" enterkeyhint="done" (keydown.enter)="save()">
+              <button type="button" class="icon-btn" [attr.aria-label]="'Убрать позицию ' + ($index + 1)"
+                      [disabled]="draft.items.length <= minItems" (click)="removeItem($index)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="flavor-chips">
+              @for (flavor of item.flavors; track flavor) {
+                <button type="button" class="flavor-chip" [class.unknown]="!isKnown(flavor)"
+                        [title]="isKnown(flavor) ? '' : 'Нет в справочнике'"
+                        [attr.aria-label]="'Убрать вкус ' + flavor" (click)="toggleFlavor($index, flavor)">
+                  {{ flavor }}
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"
+                       stroke-linecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18"/>
+                  </svg>
+                </button>
+              }
+              <button type="button" class="btn pick-flavors" [attr.aria-expanded]="pickerIndex === $index"
+                      (click)="togglePicker($index)">
+                {{ pickerIndex === $index ? 'Готово' : 'Вкусы' }}
+              </button>
+            </div>
+
+            @if (pickerIndex === $index) {
+              <app-flavor-picker class="picker" [groups]="groups()" [selected]="item.flavors"
+                                 (toggled)="toggleFlavor($index, $event)"></app-flavor-picker>
+            }
+          </div>
+        }
+        <button type="button" class="btn add-item" (click)="addItem()">Добавить позицию</button>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      @if (draftProblem) {
+        <p class="hint problem">{{ draftProblem }}</p>
+      }
+      <div class="dialog-buttons">
+        <button type="button" class="btn" (click)="close()">Отмена</button>
+        <button type="button" class="btn btn-primary" [disabled]="!draftValid" (click)="save()">Сохранить</button>
+      </div>
+    </div>
+  }
+</dialog>
