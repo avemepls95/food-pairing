@@ -221,7 +221,8 @@ const CLIQUE_BUDGET = 2_000_000;
 const CHOSEN_SAMPLE = 3;
 const CHOSEN_GAP = 5;
 
-const flavorKey = (flavors: string[]) => [...flavors].sort().join('+');
+/** Ключ набора вкусов: по нему миксы сравниваются с журналом и со списком отклонённых */
+export const flavorKey = (flavors: string[]) => [...flavors].sort().join('+');
 
 interface JarEdge {
   /** Сумма весов пар вкусов двух банок */
@@ -342,7 +343,7 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ct
  * занявшего больше половины выдачи. Правила снимаются, если иначе карточек не хватает.
  */
 function selectItems(candidates: Recommendation[], jarCount: number, limit: number, ctx: PicksContext):
-  { items: Recommendation[]; skippedTried: number } {
+  { items: Recommendation[]; skippedTried: number; skippedRejected: number } {
   // Сравниваем миксы по известным вкусам: в банке может стоять вкус, пропавший из справочника,
   // а в баллах такого вкуса нет
   const keysOf = (category: Mix['category']) => new Set(ctx.mixes
@@ -351,10 +352,16 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
   const triedKeys = keysOf('tried');
   const plannedKeys = keysOf('planned');
 
+  const rejectedKeys = new Set(ctx.rejected);
   let skippedTried = 0;
+  let skippedRejected = 0;
   const pool: Recommendation[] = [];
   candidates.forEach(item => {
     const key = flavorKey(item.flavors);
+    if (rejectedKeys.has(key)) {
+      skippedRejected++;
+      return;
+    }
     if (triedKeys.has(key)) {
       skippedTried++;
       return;
@@ -386,7 +393,7 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
   const attempts = [pick(jarCount > 2, true), pick(jarCount > 2, false), pick(false, false)];
   const items = attempts.find(attempt => attempt.length >= limit) ?? attempts[attempts.length - 1];
 
-  return { items, skippedTried };
+  return { items, skippedTried, skippedRejected };
 }
 
 function buildShelf(jarCount: number, risk: Risk, limit: number, ctx: PicksContext, scoreCtx: ScoreContext): PickShelf {
@@ -408,9 +415,9 @@ function buildShelf(jarCount: number, risk: Risk, limit: number, ctx: PicksConte
     }
   }
 
-  const { items, skippedTried } = selectItems(found, jarCount, limit, ctx);
+  const { items, skippedTried, skippedRejected } = selectItems(found, jarCount, limit, ctx);
 
-  return { jarCount, items, risk: used, relaxed: used !== risk, skippedTried, total };
+  return { jarCount, items, risk: used, relaxed: used !== risk, skippedTried, skippedRejected, total };
 }
 
 /** Наибольшее число банок, которое почти не проигрывает лучшему */

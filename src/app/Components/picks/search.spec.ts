@@ -27,6 +27,7 @@ const jarsOf = (...flavors: string[]): Jar[] => flavors.map(flavor => jar(flavor
 const context = (jars: Jar[], patch: Partial<PicksContext> = {}): PicksContext => ({
   jars,
   mixes: [],
+  rejected: [],
   level: () => 'red',
   categoryOf: flavor => CATEGORIES[flavor],
   knows: flavor => flavor in CATEGORIES,
@@ -152,6 +153,23 @@ describe('recommend: журнал', () => {
 
     expect(result.shelves[0].items).toEqual([]);
     expect(result.shelves[0].skippedTried).toBe(1);
+  });
+
+  it('набор вкусов отклонён => в выдачу не попадает и считается в skippedRejected', () => {
+    const jars = jarsOf('вишня', 'мята', 'лайм');
+
+    const result = recommend(request(), context(jars, { rejected: ['вишня+мята'] }));
+
+    expect(flavorsOf(result.shelves[0].items)).not.toContain('вишня+мята');
+    expect(result.shelves[0].skippedRejected).toBe(1);
+  });
+
+  it('отклонённых нет => skippedRejected ноль', () => {
+    const jars = jarsOf('вишня', 'мята');
+
+    const result = recommend(request(), context(jars));
+
+    expect(result.shelves[0].skippedRejected).toBe(0);
   });
 
   it('набор вкусов совпал с запланированным миксом => остаётся с planned true', () => {

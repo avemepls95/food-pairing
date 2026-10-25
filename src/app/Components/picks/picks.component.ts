@@ -7,7 +7,7 @@ import { Mix, MixCategory, MixItem } from '../../Core/library/mix';
 import { MixFormComponent } from '../mix-form/mix-form.component';
 import { NavComponent } from '../nav/nav.component';
 import { PickShelf, PicksResult, Recommendation, Risk } from './recommendation';
-import { recommend } from './recommender';
+import { flavorKey, recommend } from './recommender';
 
 const SETTINGS_KEY = 'food-pairing.picks-settings';
 const PAGE_SIZE = 6;
@@ -167,6 +167,17 @@ export class PicksComponent implements OnInit {
     this.saveMix(item, 'planned');
   }
 
+  /** Больше не предлагать этот набор вкусов */
+  reject(item: Recommendation): void {
+    this.store.reject(flavorKey(item.flavors));
+    this.calculate(true);
+  }
+
+  restoreRejected(): void {
+    this.store.restoreRejected();
+    this.calculate(true);
+  }
+
   openTriedForm(item: Recommendation): void {
     this.form().open({
       id: newId(),
@@ -221,6 +232,7 @@ export class PicksComponent implements OnInit {
       }, {
         jars: this.jars,
         mixes: this.store.mixes(),
+        rejected: this.store.rejected(),
         level: (a, b) => this.data.level(a, b),
         categoryOf: flavor => this.data.categoryOf(flavor),
         knows: flavor => !!this.data.node(flavor),

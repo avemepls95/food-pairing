@@ -232,12 +232,23 @@
 
 .pick-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: auto 1fr 1fr;
   gap: 8px;
+  align-items: center;
 }
 
 .empty-shelf, .skipped {
   padding: 0 4px;
+}
+
+.note-action {
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .show-more {

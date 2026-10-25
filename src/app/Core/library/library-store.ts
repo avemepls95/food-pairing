@@ -8,7 +8,7 @@ import { Mix } from './mix';
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryStore {
-  private library: Library = { jars: [], mixes: [] };
+  private library: Library = { jars: [], mixes: [], rejected: [] };
   private loaded = false;
   private canonical: Canonical = () => undefined;
 
@@ -32,6 +32,24 @@ export class LibraryStore {
 
   mixes(): Mix[] {
     return this.library.mixes;
+  }
+
+  rejected(): string[] {
+    return this.library.rejected;
+  }
+
+  /** Набор вкусов, который больше не предлагаем */
+  reject(key: string): void {
+    if (this.library.rejected.includes(key)) {
+      return;
+    }
+    this.library.rejected = [...this.library.rejected, key];
+    this.write();
+  }
+
+  restoreRejected(): void {
+    this.library.rejected = [];
+    this.write();
   }
 
   saveJar(jar: Jar): void {

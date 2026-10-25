@@ -6,11 +6,14 @@ export interface Backup {
   version: number;
   jars?: unknown;
   mixes?: unknown;
+  rejected?: unknown;
 }
 
 export interface Library {
   jars: Jar[];
   mixes: Mix[];
+  /** Наборы вкусов, которые пользователь больше не хочет видеть в подборе */
+  rejected: string[];
 }
 
 export interface ParsedBackup extends Library {
@@ -106,10 +109,14 @@ function migrateLibrary(backup: Backup, canonical: Canonical): ParsedBackup {
 
   const jars = rawJars.map(jar => migrateJar(jar, jarIds)).filter((jar): jar is Jar => !!jar);
   const mixes = rawMixes.map(mix => migrateMix(mix, mixIds, canonical)).filter(isMixValid);
+  const rejected = Array.isArray(backup.rejected)
+    ? Array.from(new Set(backup.rejected.map(key => asText(key)).filter((key): key is string => !!key)))
+    : [];
 
   return {
     jars,
     mixes,
+    rejected,
     skipped: rawJars.length - jars.length + (rawMixes.length - mixes.length),
     mixesOnly: backup.version < STORAGE_VERSION
   };
@@ -145,11 +152,11 @@ export function readLibrary(storage: Pick<Storage, 'getItem'>, canonical: Canoni
   try {
     const stored = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_MIXES_KEY);
     if (!stored) {
-      return { jars: [], mixes: [] };
+      return { jars: [], mixes: [], rejected: [] };
     }
-    const { jars, mixes } = migrateLibrary(JSON.parse(stored) as Backup, canonical);
-    return { jars, mixes };
+    const { jars, mixes, rejected } = migrateLibrary(JSON.parse(stored) as Backup, canonical);
+    return { jars, mixes, rejected };
   } catch {
-    return { jars: [], mixes: [] };
+    return { jars: [], mixes: [], rejected: [] };
   }
 }

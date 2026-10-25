@@ -134,6 +134,15 @@
                 </div>
 
                 <div class="pick-actions">
+                  <button type="button" class="icon-btn" title="Больше не предлагать"
+                          aria-label="Больше не предлагать этот микс" (click)="reject(item)">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M4 4l16 16"/>
+                      <path d="M10.6 10.7a2 2 0 002.8 2.8"/>
+                      <path d="M9.4 5.2A9 9 0 0112 5c5 0 9 4.5 9 7a11 11 0 01-2.4 3.3M6.4 6.8C4 8.3 3 10.4 3 12c0 2.5 4 7 9 7 1.2 0 2.4-.3 3.4-.8"/>
+                    </svg>
+                  </button>
                   <button type="button" class="btn" [disabled]="item.planned"
                           (click)="addToPlanned(item)">В планы</button>
                   <button type="button" class="btn btn-primary" (click)="openTriedForm(item)">Попробовал</button>
@@ -151,6 +160,12 @@
 
             @if (shelf.skippedTried) {
               <p class="hint skipped">Уже попробовано и скрыто: {{ shelf.skippedTried }}</p>
+            }
+            @if (shelf.skippedRejected) {
+              <p class="hint skipped">
+                Скрыто вами: {{ shelf.skippedRejected }}
+                <button type="button" class="note-action" (click)="restoreRejected()">вернуть все</button>
+              </p>
             }
           }
         </section>

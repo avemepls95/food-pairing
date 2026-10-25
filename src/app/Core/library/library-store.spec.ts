@@ -88,7 +88,7 @@ describe('readLibrary', () => {
 
     const library = readLibrary(storage, canonical);
 
-    expect(library).toEqual({ jars: [], mixes: [] });
+    expect(library).toEqual({ jars: [], mixes: [], rejected: [] });
   });
 
   it('новый ключ => читается он, а не старый', () => {
@@ -105,6 +105,48 @@ describe('readLibrary', () => {
 
     expect(library.jars).toEqual([{ id: 'j1', flavors: ['мята'] }]);
     expect(library.mixes).toEqual([]);
+  });
+});
+
+describe('отклонённые миксы', () => {
+  it('в файле нет поля rejected => список пустой', () => {
+    const storage = storageWith({
+      'food-pairing.library': JSON.stringify({ version: 2, jars: [], mixes: [] })
+    });
+
+    expect(readLibrary(storage, canonical).rejected).toEqual([]);
+  });
+
+  it('в файле есть rejected => ключи читаются без повторов', () => {
+    const storage = storageWith({
+      'food-pairing.library': JSON.stringify({
+        version: 2,
+        jars: [],
+        mixes: [],
+        rejected: ['кислая вишня+мята', 'кислая вишня+мята', 'лайм+мята']
+      })
+    });
+
+    expect(readLibrary(storage, canonical).rejected).toEqual(['кислая вишня+мята', 'лайм+мята']);
+  });
+
+  it('rejected не массив => список пустой', () => {
+    const storage = storageWith({
+      'food-pairing.library': JSON.stringify({ version: 2, jars: [], mixes: [], rejected: 'нет' })
+    });
+
+    expect(readLibrary(storage, canonical).rejected).toEqual([]);
+  });
+
+  it('в rejected лежит мусор => остаются только непустые строки', () => {
+    const parsed = parseBackup(JSON.stringify({
+      version: 2,
+      jars: [{ id: 'j1', flavors: ['мята'] }],
+      mixes: [],
+      rejected: ['лайм+мята', '', 42, null]
+    }), canonical);
+
+    expect(parsed.rejected).toEqual(['лайм+мята']);
   });
 });
 

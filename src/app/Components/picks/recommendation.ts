@@ -61,6 +61,8 @@ export interface PickShelf {
   relaxed: boolean;
   /** Сколько комбинаций выброшено как уже попробованные */
   skippedTried: number;
+  /** Сколько комбинаций скрыто самим пользователем */
+  skippedRejected: number;
   /** Сколько комбинаций прошло гейт */
   total: number;
 }
@@ -75,6 +77,8 @@ export interface PicksRequest {
 export interface PicksContext extends ScoreContext {
   jars: Jar[];
   mixes: Mix[];
+  /** Ключи наборов вкусов, отклонённых пользователем */
+  rejected: string[];
 }
 
 export interface PicksResult {
