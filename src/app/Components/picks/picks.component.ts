@@ -113,7 +113,7 @@ export class PicksComponent implements OnInit {
   }
 
   get canShowMore(): boolean {
-    return !!this.result?.shelves.some(shelf => shelf.items.length >= this.limit);
+    return !!this.result?.shelves.some(shelf => shelf.items.length >= this.limit || shelf.hiddenRepeats > 0);
   }
 
   isExpanded(shelf: PickShelf): boolean {

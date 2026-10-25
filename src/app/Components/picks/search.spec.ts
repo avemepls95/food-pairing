@@ -5,6 +5,9 @@ import { Mix } from '../../Core/library/mix';
 import { PicksContext, PicksRequest } from './recommendation';
 import { recommend } from './recommender';
 
+const BIG_SHELF = ['вишня', 'малина', 'клубника', 'ежевика', 'черника', 'брусника', 'клюква',
+  'морошка', 'облепиха', 'лайм', 'лимон', 'мята', 'имбирь', 'кола'];
+
 const CATEGORIES: Record<string, string> = {
   вишня: 'Ягоды',
   малина: 'Ягоды',
@@ -15,6 +18,7 @@ const CATEGORIES: Record<string, string> = {
   клюква: 'Ягоды',
   морошка: 'Ягоды',
   облепиха: 'Ягоды',
+  кола: 'Напитки',
   лайм: 'Цитрус',
   лимон: 'Цитрус',
   мята: 'Травы',
@@ -54,7 +58,7 @@ describe('recommend: гейты', () => {
     const result = recommend(request({ risk: 'bold' }), context(jars, { level: () => 'pale' }));
 
     expect(result.shelves[0].items).toEqual([]);
-    expect(result.shelves[0].total).toBe(0);
+    expect(result.shelves[0].scored).toBe(0);
   });
 
   it('банки с общим вкусом => вместе не предлагаются', () => {
@@ -117,13 +121,42 @@ describe('recommend: гейты', () => {
     expect(result.shelves[0].risk).toBe('balanced');
   });
 
-  it('на самом свободном режиме пусто => полка без карточек и total 0', () => {
+  it('режим ослаблен => найденные миксы остаются в выдаче и стоят первыми', () => {
+    const jars = jarsOf('вишня', 'мята', 'лайм', 'малина');
+    // Описана одна пара, остальные неизвестны, поэтому проверенных миксов меньше трёх
+    const level = (a: string, b: string): PairLevel =>
+      pairKey(a, b) === pairKey('вишня', 'мята') ? 'red' : 'unknown';
+
+    const result = recommend(request({ risk: 'safe' }), context(jars, { level }));
+
+    expect(flavorsOf(result.shelves[0].items)[0]).toBe('вишня+мята');
+    expect(result.shelves[0].items.length).toBeGreaterThan(1);
+  });
+
+  it('все найденные миксы уже в журнале => режим всё равно ослабляется', () => {
+    const jars = jarsOf('вишня', 'мята', 'лайм', 'малина');
+    // Малина ни с чем не описана, остальные пары зелёные
+    const level = (a: string, b: string): PairLevel =>
+      a === 'малина' || b === 'малина' ? 'unknown' : 'green';
+    const mixes = [
+      mix('tried', 5, 'вишня', 'мята'),
+      mix('tried', 5, 'вишня', 'лайм'),
+      mix('tried', 5, 'мята', 'лайм')
+    ];
+
+    const result = recommend(request({ risk: 'safe' }), context(jars, { level, mixes }));
+
+    expect(result.shelves[0].items).toHaveLength(3);
+    expect(flavorsOf(result.shelves[0].items).every(key => key.includes('малина'))).toBe(true);
+  });
+
+  it('на самом свободном режиме пусто => полка без карточек и ничего не оценено', () => {
     const jars = jarsOf('вишня', 'мята');
 
     const result = recommend(request({ risk: 'safe' }), context(jars, { level: () => 'pale' }));
 
     expect(result.shelves[0].items).toEqual([]);
-    expect(result.shelves[0].total).toBe(0);
+    expect(result.shelves[0].scored).toBe(0);
     expect(result.shelves[0].risk).toBe('bold');
   });
 
@@ -222,7 +255,61 @@ describe('recommend: разнообразие', () => {
     expect(withMint).toHaveLength(2);
   });
 
-  it('после фильтров карточек меньше шести => правила разнообразия снимаются', () => {
+  it('вкус сочетается со всем => в начале списка он не чаще трети карточек', () => {
+    const jars = jarsOf('вишня', 'малина', 'клубника', 'ежевика', 'черника', 'брусника');
+    // Вишня красная со всеми, остальные между собой только синие
+    const level = (a: string, b: string): PairLevel => (a === 'вишня' || b === 'вишня' ? 'red' : 'blue');
+
+    const result = recommend(request({ jarCount: 2, limit: 6 }), context(jars, { level }));
+    const items = result.shelves[0].items;
+
+    expect(items).toHaveLength(6);
+    expect(items.slice(0, 6).filter(item => item.flavors.includes('вишня'))).toHaveLength(2);
+  });
+
+  it('других кандидатов нет => повторы занимают хвост списка, карточки не теряются', () => {
+    const jars = jarsOf('вишня', 'малина', 'клубника', 'ежевика');
+    // Без вишни пары бледные, поэтому все миксы только с ней
+    const level = (a: string, b: string): PairLevel => (a === 'вишня' || b === 'вишня' ? 'red' : 'pale');
+
+    const result = recommend(request({ jarCount: 2, limit: 6 }), context(jars, { level }));
+
+    expect(result.shelves[0].items).toHaveLength(3);
+  });
+
+  it('лимит вырос => первые шесть карточек остаются теми же', () => {
+    const jars = jarsOf(...BIG_SHELF);
+
+    const six = recommend(request({ jarCount: 3, limit: 6 }), context(jars));
+    const twelve = recommend(request({ jarCount: 3, limit: 12 }), context(jars));
+
+    expect(flavorsOf(twelve.shelves[0].items).slice(0, 6)).toEqual(flavorsOf(six.shelves[0].items));
+  });
+
+  it('миксы из четырёх банок => "Показать ещё" достаёт отложенные карточки', () => {
+    const jars = jarsOf(...BIG_SHELF);
+
+    const page = recommend(request({ jarCount: 4, limit: 6 }), context(jars)).shelves[0];
+    const more = recommend(request({ jarCount: 4, limit: 12 }), context(jars)).shelves[0];
+
+    expect(page.hiddenRepeats).toBeGreaterThan(0);
+    expect(more.items.length).toBeGreaterThan(page.items.length);
+    expect(more.items.slice(page.items.length).every(item => item.repeat)).toBe(true);
+  });
+
+  it('карточка добрана из отложенных => она помечена повтором', () => {
+    const jars = jarsOf('вишня', 'малина', 'клубника', 'ежевика', 'черника', 'брусника');
+    // Без вишни пары бледные, поэтому все миксы только с ней
+    const level = (a: string, b: string): PairLevel => (a === 'вишня' || b === 'вишня' ? 'red' : 'pale');
+
+    const result = recommend(request({ jarCount: 2, limit: 6 }), context(jars, { level }));
+    const items = result.shelves[0].items;
+
+    expect(items).toHaveLength(3);
+    expect(items.map(item => item.repeat)).toEqual([false, false, true]);
+  });
+
+  it('комбинация всего одна => она и показывается', () => {
     const jars = jarsOf('вишня', 'малина', 'мята');
 
     const result = recommend(request({ jarCount: 3 }), context(jars));
@@ -266,12 +353,13 @@ describe('recommend: число банок', () => {
     expect(result.shelves.map(shelf => shelf.jarCount)).toEqual([2, 3, 4, 5]);
   });
 
-  it('все полки близки по баллу => chosen это наибольшее число банок', () => {
+  it('полка с одной карточкой => выбирают ту, где карточек хватает', () => {
     const jars = jarsOf('вишня', 'малина', 'клубника', 'мята');
 
     const result = recommend(request({ jarCount: 'any' }), context(jars));
+    const chosenShelf = result.shelves.find(shelf => shelf.jarCount === result.chosen);
 
-    expect(result.chosen).toBe(4);
+    expect(chosenShelf!.items.length).toBeGreaterThanOrEqual(3);
   });
 
   it('миксы из трёх банок не собираются => chosen это два', () => {

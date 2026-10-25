@@ -107,10 +107,27 @@ describe('structureScore', () => {
 });
 
 describe('scoreMix', () => {
-  it('все пары красные => балл 82', () => {
+  it('банка с двумя вкусами => её связь весит столько же, сколько связь одновкусовой банки', () => {
+    // вишня и малина красные с мятой и лаймом, пара мята-лайм синяя
+    const level = (a: string, b: string): PairLevel =>
+      (a === 'мята' && b === 'лайм') || (a === 'лайм' && b === 'мята') ? 'blue' : 'red';
+
+    const mix = scoreMix([jar('вишня', 'малина'), jar('мята'), jar('лайм')], context({ level }));
+
+    // среднее по трём связям банок: (1 + 1 + 0.35) / 3, а не по пяти парам вкусов
+    expect(mix?.harmony).toBeCloseTo((1 + 1 + LEVEL_WEIGHT.blue) / 3, 5);
+  });
+
+  it('красная пара с акцентом и двумя категориями => балл 100', () => {
+    const mix = scoreMix([jar('вишня'), jar('мята')], context());
+
+    expect(mix?.score).toBe(100);
+  });
+
+  it('все пары красные, структура нулевая => балл 93', () => {
     const mix = scoreMix([jar('вишня'), jar('малина')], context());
 
-    expect(mix?.score).toBe(82);
+    expect(mix?.score).toBe(93);
   });
 
   it('все пары синие => балл ниже, чем у красных', () => {
@@ -157,6 +174,14 @@ describe('scoreMix', () => {
 });
 
 describe('affinities', () => {
+  it('оценена одна пара из трёх => добавка меньше, чем когда оценены все три', () => {
+    const one = affinities([tried(5, 'вишня', 'мята')]);
+    const all = affinities([tried(5, 'вишня', 'мята', 'лайм')]);
+    const pairs = crossPairs([jar('вишня'), jar('мята'), jar('лайм')], context());
+
+    expect(personalScore([], pairs, one)).toBeLessThan(personalScore([], pairs, all));
+  });
+
   it('вкус из микса с оценкой 5 => личная добавка положительная', () => {
     const affinity = affinities([tried(5, 'вишня', 'мята')]);
 
@@ -234,6 +259,10 @@ describe('shares', () => {
 });
 
 describe('jarRole', () => {
+  it('банка с акцентом и вкусом не из справочника => роль accent', () => {
+    expect(jarRole(jar('мята', 'шафран'), context())).toBe('accent');
+  });
+
   it('банка с базовым вкусом => роль base', () => {
     expect(jarRole(jar('вишня', 'мята'), context())).toBe('base');
   });

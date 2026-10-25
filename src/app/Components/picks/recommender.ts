@@ -39,9 +39,12 @@ const requiresUnknownPair = (risk: Risk) => risk === 'bold';
 
 const STRUCTURE_PART = 0.12;
 const PERSONAL_PART = 0.15;
-// Балл показываем от 0 до 100, поэтому raw растягиваем между худшим и лучшим возможным
+/** Выше структура не поднимается: плюс за один акцент и плюс за разные категории */
+const STRUCTURE_MAX = 0.75;
+// Балл от 0 до 100 растянут между худшим и лучшим достижимым raw. Личные оценки в размах
+// не входят: сто баллов это идеальный микс по таблицам, выше поднимать некуда
 const RAW_MIN = -(STRUCTURE_PART + PERSONAL_PART);
-const RAW_SPAN = (1 + STRUCTURE_PART + PERSONAL_PART) - RAW_MIN;
+const RAW_SPAN = (1 + STRUCTURE_PART * STRUCTURE_MAX) - RAW_MIN;
 
 const ROLE_WEIGHT: Record<FlavorRole, number> = { base: 1, support: 0.6, accent: 0.35 };
 
@@ -51,26 +54,34 @@ const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0)
 const knownFlavors = (jar: Jar, ctx: ScoreContext) => jar.flavors.filter(flavor => ctx.knows(flavor));
 
 /**
- * Пары вкусов из разных банок. Состав одной банки выбрал производитель, поэтому внутри банки
- * пары не считаются, а общий вкус двух банок пары не даёт.
+ * Пары вкусов, сгруппированные по связям банок. Состав одной банки выбрал производитель,
+ * поэтому внутри банки пары не считаются, а общий вкус двух банок пары не даёт.
  */
-export function crossPairs(jars: Jar[], ctx: ScoreContext): ScoredPair[] {
-  const pairs: ScoredPair[] = [];
+export function crossPairGroups(jars: Jar[], ctx: ScoreContext): ScoredPair[][] {
+  const groups: ScoredPair[][] = [];
   const flavors = jars.map(jar => knownFlavors(jar, ctx));
 
   for (let i = 0; i < flavors.length; i++) {
     for (let j = i + 1; j < flavors.length; j++) {
+      const group: ScoredPair[] = [];
       for (const a of flavors[i]) {
         for (const b of flavors[j]) {
           if (a === b) continue;
           const level = ctx.level(a, b);
-          pairs.push({ a, b, level, weight: LEVEL_WEIGHT[level] });
+          group.push({ a, b, level, weight: LEVEL_WEIGHT[level] });
         }
+      }
+      if (group.length) {
+        groups.push(group);
       }
     }
   }
 
-  return pairs;
+  return groups;
+}
+
+export function crossPairs(jars: Jar[], ctx: ScoreContext): ScoredPair[] {
+  return crossPairGroups(jars, ctx).flat();
 }
 
 /**
@@ -142,7 +153,7 @@ export function personalScore(flavors: string[], pairs: ScoredPair[], affinity: 
     .filter((value): value is number => value !== undefined);
 
   const byFlavor = flavorValues.length ? mean(flavorValues) : 0;
-  const byPair = pairValues.length ? mean(pairValues) : 0;
+  const byPair = pairs.length ? pairValues.reduce((sum, value) => sum + value, 0) / pairs.length : 0;
 
   return clamp(0.6 * byFlavor + 0.4 * byPair, -1, 1);
 }
@@ -167,7 +178,10 @@ export function shares(roles: FlavorRole[]): number[] {
 }
 
 export function jarRole(jar: Jar, ctx: ScoreContext): FlavorRole {
-  const roles = jar.flavors.map(flavor => roleOfCategory(ctx.categoryOf(flavor)));
+  const roles = knownFlavors(jar, ctx).map(flavor => roleOfCategory(ctx.categoryOf(flavor)));
+  if (!roles.length) {
+    return 'support';
+  }
   if (roles.every(role => role === 'accent')) {
     return 'accent';
   }
@@ -179,13 +193,15 @@ export function jarRole(jar: Jar, ctx: ScoreContext): FlavorRole {
  * вкусов из справочника.
  */
 export function scoreMix(jars: Jar[], ctx: ScoreContext): Recommendation | undefined {
-  const pairs = crossPairs(jars, ctx);
+  const groups = crossPairGroups(jars, ctx);
+  const pairs = groups.flat();
   if (!pairs.length) {
     return undefined;
   }
 
   const weights = pairs.map(pair => pair.weight);
-  const harmony = mean(weights);
+  // Среднее по связям банок: банка с тремя вкусами иначе перетягивала бы весь балл на себя
+  const harmony = mean(groups.map(group => mean(group.map(pair => pair.weight))));
   const weakest = Math.min(...weights);
   const flavors = Array.from(new Set(jars.flatMap(jar => knownFlavors(jar, ctx))));
   const structure = structureScore(flavors, ctx);
@@ -207,7 +223,8 @@ export function scoreMix(jars: Jar[], ctx: ScoreContext): Recommendation | undef
     structure,
     personal,
     thinData: flavors.some(flavor => !ctx.hasTable(flavor)),
-    planned: false
+    planned: false,
+    repeat: false
   };
 }
 
@@ -215,28 +232,28 @@ const RISK_ORDER: Risk[] = ['safe', 'balanced', 'bold'];
 const DEFAULT_LIMIT = 6;
 /** Сколько лучших по сочетаемости комбинаций доходит до полного балла */
 const TOP_CANDIDATES = 200;
-/** Страховка от перебора на огромной полке */
-const CLIQUE_BUDGET = 2_000_000;
 /** Сколько карточек смотрим, выбирая число банок в режиме "Неважно" */
 const CHOSEN_SAMPLE = 3;
+/** Ниже этого числа выдача выглядит пустой, поэтому повторы всё же идут в дело */
+const MIN_CARDS = 3;
+/** Карточек на странице выдачи: от него считается, как часто вкус может повторяться */
+const CARDS_PER_PAGE = 6;
 const CHOSEN_GAP = 5;
 
 /** Ключ набора вкусов: по нему миксы сравниваются с журналом и со списком отклонённых */
 export const flavorKey = (flavors: string[]) => [...flavors].sort().join('+');
 
 interface JarEdge {
-  /** Сумма весов пар вкусов двух банок */
-  sum: number;
-  count: number;
+  /** Средний вес пар вкусов двух банок */
+  mean: number;
   weakest: number;
   ok: boolean;
 }
 
-function jarEdges(jars: Jar[], ctx: ScoreContext, gate: number): { edges: JarEdge[][]; maxCount: number } {
+function jarEdges(jars: Jar[], ctx: ScoreContext, gate: number): JarEdge[][] {
   const flavors = jars.map(jar => jar.flavors.filter(flavor => ctx.knows(flavor)));
-  const empty: JarEdge = { sum: 0, count: 0, weakest: 0, ok: false };
+  const empty: JarEdge = { mean: 0, weakest: 0, ok: false };
   const edges: JarEdge[][] = jars.map(() => jars.map(() => empty));
-  let maxCount = 1;
 
   for (let i = 0; i < jars.length; i++) {
     for (let j = i + 1; j < jars.length; j++) {
@@ -254,14 +271,17 @@ function jarEdges(jars: Jar[], ctx: ScoreContext, gate: number): { edges: JarEdg
         }
       }
       // Банки с общим вкусом вместе не предлагаем: "вишня и вишня с мятой" это не микс
-      const edge: JarEdge = { sum, count, weakest, ok: !shared && count > 0 && weakest >= gate };
+      const edge: JarEdge = {
+        mean: count ? sum / count : 0,
+        weakest,
+        ok: !shared && count > 0 && weakest >= gate
+      };
       edges[i][j] = edge;
       edges[j][i] = edge;
-      maxCount = Math.max(maxCount, count);
     }
   }
 
-  return { edges, maxCount };
+  return edges;
 }
 
 /**
@@ -269,12 +289,12 @@ function jarEdges(jars: Jar[], ctx: ScoreContext, gate: number): { edges: JarEdg
  * сочетаемость, а балл получают лучшие по ней.
  */
 function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ctx: PicksContext, scoreCtx: ScoreContext):
-  { items: Recommendation[]; total: number } {
+  { items: Recommendation[]; scored: number } {
   const jars = ctx.jars;
-  const { edges, maxCount } = jarEdges(jars, scoreCtx, gate);
+  const edges = jarEdges(jars, scoreCtx, gate);
   const allPairs = jarCount * (jarCount - 1) / 2;
   const top: { jars: Jar[]; harmony: number }[] = [];
-  let total = 0;
+  let scored = 0;
 
   const worst = () => (top.length < TOP_CANDIDATES ? -1 : top[top.length - 1].harmony);
 
@@ -294,13 +314,13 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ct
       if (requireUnknown && weakest > LEVEL_WEIGHT.unknown) {
         return;
       }
-      total++;
+      scored++;
       keep(chosen, sum / count);
       return;
     }
     const need = jarCount - chosen.length;
     for (let index = 0; index < candidates.length; index++) {
-      if (candidates.length - index < need || total >= CLIQUE_BUDGET) {
+      if (candidates.length - index < need) {
         break;
       }
       const candidate = candidates[index];
@@ -308,13 +328,13 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ct
       let nextCount = count;
       let nextWeakest = weakest;
       for (const picked of chosen) {
-        nextSum += edges[picked][candidate].sum;
-        nextCount += edges[picked][candidate].count;
+        nextSum += edges[picked][candidate].mean;
+        nextCount++;
         nextWeakest = Math.min(nextWeakest, edges[picked][candidate].weakest);
       }
-      // Оптимистичная оценка: все недостающие пары по единице
+      // Оптимистичная оценка: все недостающие связи по единице
       const taken = (chosen.length + 1) * chosen.length / 2;
-      const rest = (allPairs - taken) * maxCount;
+      const rest = allPairs - taken;
       if ((nextSum + rest) / (nextCount + rest) <= worst()) {
         continue;
       }
@@ -335,7 +355,7 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ct
     .filter((item): item is Recommendation => !!item)
     .sort((a, b) => b.score - a.score);
 
-  return { items, total };
+  return { items, scored };
 }
 
 /**
@@ -343,7 +363,7 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ct
  * занявшего больше половины выдачи. Правила снимаются, если иначе карточек не хватает.
  */
 function selectItems(candidates: Recommendation[], jarCount: number, limit: number, ctx: PicksContext):
-  { items: Recommendation[]; skippedTried: number; skippedRejected: number } {
+  { items: Recommendation[]; skippedTried: number; skippedRejected: number; hiddenRepeats: number } {
   // Сравниваем миксы по известным вкусам: в банке может стоять вкус, пропавший из справочника,
   // а в баллах такого вкуса нет
   const keysOf = (category: Mix['category']) => new Set(ctx.mixes
@@ -369,60 +389,82 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
     pool.push({ ...item, planned: plannedKeys.has(key) });
   });
 
-  const pick = (nearRule: boolean, halfRule: boolean): Recommendation[] => {
-    const picked: Recommendation[] = [];
-    const seen = new Map<string, number>();
-    const half = Math.floor(limit / 2);
+  // Вкус вроде сыра сочетается с доброй половиной справочника и без ограничения занимает
+  // почти всю выдачу. Порог это равномерная раскладка вкусов полки по странице выдачи:
+  // он не зависит от лимита, поэтому "Показать ещё" не перетряхивает уже показанное, и растёт
+  // вместе с числом банок в миксе, иначе на миксах из четырёх банок карточек не набирается
+  const shelfFlavors = new Set(ctx.jars.flatMap(jar => jar.flavors.filter(flavor => ctx.knows(flavor))));
+  const flavorLimit = Math.max(2, Math.ceil(CARDS_PER_PAGE * jarCount / Math.max(1, shelfFlavors.size)));
+  const picked: Recommendation[] = [];
+  const postponed: Recommendation[] = [];
+  const seen = new Map<string, number>();
 
-    for (const item of pool) {
-      const tooClose = nearRule && picked.some(other =>
-        other.jarIds.filter(id => item.jarIds.includes(id)).length >= jarCount - 1);
-      const tooOften = halfRule && item.flavors.some(flavor => (seen.get(flavor) ?? 0) >= half);
-      if (tooClose || tooOften) {
-        continue;
-      }
-      picked.push(item);
-      item.flavors.forEach(flavor => seen.set(flavor, (seen.get(flavor) ?? 0) + 1));
-      if (picked.length === limit) {
-        break;
-      }
+  for (const item of pool) {
+    const tooClose = jarCount > 2 && picked.some(other =>
+      other.jarIds.filter(id => item.jarIds.includes(id)).length >= jarCount - 1);
+    const tooOften = item.flavors.some(flavor => (seen.get(flavor) ?? 0) >= flavorLimit);
+    if (tooClose || tooOften) {
+      postponed.push(item);
+      continue;
     }
-    return picked;
-  };
-
-  const attempts = [pick(jarCount > 2, true), pick(jarCount > 2, false), pick(false, false)];
-  const items = attempts.find(attempt => attempt.length >= limit) ?? attempts[attempts.length - 1];
-
-  return { items, skippedTried, skippedRejected };
-}
-
-function buildShelf(jarCount: number, risk: Risk, limit: number, ctx: PicksContext, scoreCtx: ScoreContext): PickShelf {
-  let used = risk;
-  let found: Recommendation[] = [];
-  let total = 0;
-
-  for (const current of RISK_ORDER.slice(RISK_ORDER.indexOf(risk))) {
-    const search = searchMixes(jarCount, RISK_GATE[current], requiresUnknownPair(current), ctx, scoreCtx);
-    // Смелые это другой набор, а не более широкий, поэтому ослабление берём только когда
-    // оно действительно добавляет карточки
-    if (!found.length || search.items.length > found.length) {
-      used = current;
-      found = search.items;
-      total = search.total;
-    }
-    if (found.length >= 3) {
+    picked.push(item);
+    item.flavors.forEach(flavor => seen.set(flavor, (seen.get(flavor) ?? 0) + 1));
+    if (picked.length === limit) {
       break;
     }
   }
 
-  const { items, skippedTried, skippedRejected } = selectItems(found, jarCount, limit, ctx);
+  // На первой странице отложенные добирают список только до минимума: набивать страницу
+  // повторами того же вкуса хуже, чем показать меньше карточек. За "Показать ещё" пользователь
+  // просит остальное сам, и повторы идут в дело с пометкой
+  const tailTarget = limit > CARDS_PER_PAGE ? limit : MIN_CARDS;
+  const tail = postponed.slice(0, Math.max(0, tailTarget - picked.length))
+    .map(item => ({ ...item, repeat: true }));
+  const items = picked.concat(tail);
 
-  return { jarCount, items, risk: used, relaxed: used !== risk, skippedTried, skippedRejected, total };
+  return { items, skippedTried, skippedRejected, hiddenRepeats: postponed.length - tail.length };
+}
+
+function buildShelf(jarCount: number, risk: Risk, limit: number, ctx: PicksContext, scoreCtx: ScoreContext): PickShelf {
+  const found: Recommendation[] = [];
+  const seen = new Set<string>();
+  let used = risk;
+  let scored = 0;
+  let selected = selectItems(found, jarCount, limit, ctx);
+
+  for (const current of RISK_ORDER.slice(RISK_ORDER.indexOf(risk))) {
+    const search = searchMixes(jarCount, RISK_GATE[current], requiresUnknownPair(current), ctx, scoreCtx);
+    // Ослабление добавляет миксы к уже найденным: смелые это другой набор, и заменять им
+    // красные пары нельзя
+    search.items.forEach(item => {
+      const key = item.jarIds.join('|');
+      if (!seen.has(key)) {
+        seen.add(key);
+        found.push(item);
+      }
+    });
+    found.sort((a, b) => b.score - a.score);
+    scored += search.scored;
+    used = current;
+    // Считаем карточки, а не кандидатов: попробованные и скрытые уходят из выдачи,
+    // и без ослабления полка осталась бы пустой
+    selected = selectItems(found, jarCount, limit, ctx);
+    if (selected.items.length >= 3) {
+      break;
+    }
+  }
+
+  const { items, skippedTried, skippedRejected, hiddenRepeats } = selected;
+
+  return { jarCount, items, risk: used, relaxed: used !== risk, skippedTried, skippedRejected, hiddenRepeats, scored };
 }
 
 /** Наибольшее число банок, которое почти не проигрывает лучшему */
 function chooseCount(shelves: PickShelf[]): number | undefined {
-  const filled = shelves.filter(shelf => shelf.items.length);
+  const withItems = shelves.filter(shelf => shelf.items.length);
+  // Полка из одной карточки выбором быть не должна, пока есть полка с нормальной выдачей
+  const enough = withItems.filter(shelf => shelf.items.length >= CHOSEN_SAMPLE);
+  const filled = enough.length ? enough : withItems;
   if (!filled.length) {
     return undefined;
   }

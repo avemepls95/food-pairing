@@ -50,6 +50,8 @@ export interface Recommendation {
   thinData: boolean;
   /** Такой же набор вкусов уже лежит в планах */
   planned: boolean;
+  /** Карточка повторяет вкусы тех, что выше, и добрана, чтобы выдача не выродилась */
+  repeat: boolean;
 }
 
 export interface PickShelf {
@@ -63,8 +65,10 @@ export interface PickShelf {
   skippedTried: number;
   /** Сколько комбинаций скрыто самим пользователем */
   skippedRejected: number;
-  /** Сколько комбинаций прошло гейт */
-  total: number;
+  /** Сколько миксов не показано, потому что повторяют уже показанные вкусы */
+  hiddenRepeats: number;
+  /** Сколько комбинаций дошло до оценки: ветки, отсечённые по оценке, сюда не попадают */
+  scored: number;
 }
 
 export interface PicksRequest {

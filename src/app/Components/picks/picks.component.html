@@ -85,7 +85,7 @@
           @if (isExpanded(shelf)) {
             @if (shelf.relaxed && shelf.items.length) {
               <p class="hint note" role="status">
-                Под режим «{{ riskNames[risk] }}» миксов не набралось, показаны {{ riskNames[shelf.risk] }}
+                Под режим «{{ riskNames[risk] }}» миксов мало, в выдачу добавлены {{ riskNames[shelf.risk] }}
               </p>
             }
 
@@ -131,6 +131,9 @@
                   @if (item.planned) {
                     <span class="mark planned">в планах</span>
                   }
+                  @if (item.repeat) {
+                    <span class="mark">повторяет вкусы выше</span>
+                  }
                 </div>
 
                 <div class="pick-actions">
@@ -150,14 +153,19 @@
               </article>
             } @empty {
               <p class="hint empty-shelf">
-                @if (shelf.total) {
-                  Все миксы из {{ shelf.jarCount }} банок уже в журнале
+                @if (shelf.scored) {
+                  Все миксы из {{ shelf.jarCount }} банок уже в журнале или скрыты
                 } @else {
                   Миксов из {{ shelf.jarCount }} банок не нашлось: нужных пар на полке нет
                 }
               </p>
             }
 
+            @if (shelf.hiddenRepeats && shelf.items.length) {
+              <p class="hint skipped">
+                Ещё {{ shelf.hiddenRepeats }} миксов повторяют те же вкусы и не показаны
+              </p>
+            }
             @if (shelf.skippedTried) {
               <p class="hint skipped">Уже попробовано и скрыто: {{ shelf.skippedTried }}</p>
             }
