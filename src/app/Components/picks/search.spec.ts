@@ -383,3 +383,95 @@ describe('recommend: число банок', () => {
     expect(result.chosen).toBe(2);
   });
 });
+
+describe('recommend: аромат', () => {
+  const has = (flavor: string) => (other: string) => other === flavor;
+  const oneOf = (...flavors: string[]) => (other: string) => flavors.includes(other);
+
+  it('выбран вкус => в каждой карточке есть банка с ним', () => {
+    const jars = jarsOf(...BIG_SHELF);
+
+    const result = recommend(request({ jarCount: 3, aromas: [has('мята')] }), context(jars));
+    const items = result.shelves[0].items;
+
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every(item => item.flavors.includes('мята'))).toBe(true);
+  });
+
+  it('вкус стоит в банке вместе с другим => банка закрывает аромат', () => {
+    const jars = [jar('j1', 'вишня', 'мята'), jar('j2', 'лайм'), jar('j3', 'малина')];
+
+    const result = recommend(request({ aromas: [has('мята')] }), context(jars));
+
+    expect(result.shelves[0].items.every(item => item.jarIds.includes('j1'))).toBe(true);
+    expect(result.shelves[0].items).toHaveLength(2);
+  });
+
+  it('два аромата => в миксе есть оба', () => {
+    const jars = jarsOf('вишня', 'малина', 'мята', 'лайм', 'имбирь');
+
+    const result = recommend(request({ aromas: [has('мята'), has('лайм')] }), context(jars));
+
+    expect(flavorsOf(result.shelves[0].items)).toEqual(['лайм+мята']);
+  });
+
+  it('под аромат на полке ничего нет => карточек нет и ничего не оценено', () => {
+    const jars = jarsOf('вишня', 'малина', 'мята');
+
+    const result = recommend(request({ risk: 'safe', aromas: [has('кола')] }), context(jars));
+
+    expect(result.shelves[0].items).toEqual([]);
+    expect(result.shelves[0].scored).toBe(0);
+  });
+
+  it('аромат закрывает одна банка => она не упирается в лимит повторов', () => {
+    const jars = jarsOf(...BIG_SHELF);
+
+    const result = recommend(request({ jarCount: 2, aromas: [has('мята')] }), context(jars));
+    const items = result.shelves[0].items;
+
+    expect(items).toHaveLength(6);
+    expect(items.some(item => item.repeat)).toBe(false);
+    expect(result.shelves[0].hiddenRepeats).toBe(0);
+  });
+
+  it('аромат закрывают две банки => страница делится между ними поровну', () => {
+    const jars = jarsOf(...BIG_SHELF);
+
+    const result = recommend(request({ jarCount: 2, aromas: [oneOf('лайм', 'лимон')] }), context(jars));
+    const items = result.shelves[0].items;
+    const withLime = items.filter(item => item.flavors.includes('лайм'));
+    const withLemon = items.filter(item => item.flavors.includes('лимон'));
+
+    expect(items).toHaveLength(6);
+    expect(items.every(item => item.flavors.includes('лайм') || item.flavors.includes('лимон'))).toBe(true);
+    expect(withLime.length).toBeLessThanOrEqual(3);
+    expect(withLemon.length).toBeLessThanOrEqual(3);
+  });
+
+  it('пустой список ароматов => выдача как без фильтра', () => {
+    const jars = jarsOf(...BIG_SHELF);
+
+    const plain = recommend(request({ jarCount: 3 }), context(jars));
+    const empty = recommend(request({ jarCount: 3, aromas: [] }), context(jars));
+
+    expect(flavorsOf(empty.shelves[0].items)).toEqual(flavorsOf(plain.shelves[0].items));
+  });
+
+  it('большая полка и узкий аромат в её конце => перебор не проходит все клики', () => {
+    const flavors = Array.from({ length: 90 }, (_, index) => `вкус${index}`);
+    const jars = jarsOf(...flavors);
+    const categoryOf = (flavor: string) => (flavor === 'вкус89' ? 'Травы' : 'Ягоды');
+    // Миксы с нужным вкусом слабее остальных, поэтому граница по баллу ветки без него не режет
+    const level = (a: string, b: string): PairLevel => (a === 'вкус89' || b === 'вкус89' ? 'blue' : 'red');
+
+    const started = performance.now();
+    const result = recommend(request({ jarCount: 4, aromas: [has('вкус89')] }),
+      context(jars, { categoryOf, level, knows: () => true }));
+
+    expect(result.shelves[0].items.length).toBeGreaterThan(0);
+    expect(result.shelves[0].items.every(item => item.flavors.includes('вкус89'))).toBe(true);
+    // С отсечением десятки миллисекунд, без него перебор проходит два с половиной миллиона клик
+    expect(performance.now() - started).toBeLessThan(300);
+  });
+});

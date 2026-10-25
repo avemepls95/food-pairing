@@ -1,0 +1,46 @@
+<div class="aroma-head">
+  <span class="section-label">Аромат</span>
+  @if (selected().length) {
+    <button type="button" class="reset" (click)="clear()">Сбросить</button>
+  }
+</div>
+
+<div class="chips" role="group" aria-label="Аромат">
+  @for (flavor of chosenFlavors; track flavor) {
+    <button type="button" class="chip active" aria-pressed="true" [attr.aria-label]="'Убрать вкус ' + flavor"
+            (click)="removeFlavor(flavor)">
+      {{ flavor }}
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18"/>
+      </svg>
+    </button>
+  }
+  @for (mood of moods; track mood.id) {
+    <button type="button" class="chip" [class.active]="isMoodSelected(mood)" [attr.aria-pressed]="isMoodSelected(mood)"
+            (click)="toggleMood(mood)">{{ mood.label }}</button>
+  }
+</div>
+
+@for (mood of chosenMoods; track mood.id) {
+  <p class="hint">{{ mood.label }}: {{ moodFlavors(mood) }}</p>
+}
+@if (selected().length > 1) {
+  <p class="hint">В миксе будет всё выбранное</p>
+}
+
+<input type="search" class="input" [(ngModel)]="term" placeholder="Или конкретный вкус: кокос, мята"
+       aria-label="Найти вкус" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+       (keydown.enter)="pickFirst()">
+
+@if (term.trim()) {
+  @if (suggestions.length) {
+    <div class="chips" role="group" aria-label="Подходящие вкусы">
+      @for (aroma of suggestions; track key(aroma)) {
+        <button type="button" class="chip suggestion" (click)="pick(aroma)">{{ label(aroma) }}</button>
+      }
+    </div>
+  } @else {
+    <p class="hint">{{ nothingFound }}</p>
+  }
+}

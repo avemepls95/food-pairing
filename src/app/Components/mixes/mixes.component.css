@@ -60,6 +60,10 @@
   transform: rotate(180deg);
 }
 
+.aroma {
+  padding: 12px;
+}
+
 .list {
   display: flex;
   flex-direction: column;

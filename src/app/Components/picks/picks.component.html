@@ -29,6 +29,9 @@
       </div>
 
       @if (answered) {
+        <app-aroma-filter [flavors]="shelfFlavors" [selected]="aromas" where="на полке"
+                          (changed)="setAromas($event)"></app-aroma-filter>
+
         <div class="field">
           <span class="section-label">Какие миксы показывать</span>
           <div class="segmented" role="group" aria-label="Режим подбора">
@@ -159,6 +162,9 @@
               <p class="hint empty-shelf">
                 @if (shelf.scored) {
                   Все миксы из {{ shelf.jarCount }} банок уже в журнале или скрыты
+                } @else if (aromas.length) {
+                  С выбранным ароматом миксов из {{ shelf.jarCount }} банок не нашлось
+                  <button type="button" class="note-action" (click)="setAromas([])">сбросить аромат</button>
                 } @else {
                   Миксов из {{ shelf.jarCount }} банок не нашлось: нужных пар на полке нет
                 }

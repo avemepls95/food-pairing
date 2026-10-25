@@ -1,0 +1,73 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aroma-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reset {
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+/* Выбранный аромат залит: состояние видно не только по оттенку */
+.chip.active {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--surface);
+  font-weight: 500;
+}
+
+/* Подсказка поиска ещё не выбрана: контур, а не заливка */
+.chip.suggestion {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+@media (hover: hover) {
+  .chip:hover:not(.active) {
+    background: var(--border);
+  }
+}
+
+.chip:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    transition: none;
+  }
+}

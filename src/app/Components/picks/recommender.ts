@@ -1,3 +1,4 @@
+import { FlavorTest } from '../../Core/graph/aroma';
 import { FlavorRole, roleOfCategory } from '../../Core/graph/categories';
 import { pairKey, PairLevel } from '../../Core/graph/graph-data';
 import { Jar } from '../../Core/library/jar';
@@ -292,12 +293,18 @@ function jarEdges(jars: Jar[], ctx: ScoreContext, gate: number): JarEdge[][] {
 
 /**
  * Перебор клик в графе банок. Полный балл клики стоит дорого, поэтому обход считает только
- * сочетаемость, а балл получают лучшие по ней.
+ * сочетаемость, а балл получают лучшие по ней. Каждый аромат должна закрыть хотя бы одна банка микса.
  */
-function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ctx: PicksContext, scoreCtx: ScoreContext):
-  { items: Recommendation[]; scored: number } {
-  const jars = ctx.jars;
+function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, aromas: FlavorTest[], ctx: PicksContext,
+  scoreCtx: ScoreContext): { items: Recommendation[]; scored: number } {
+  // Банки под аромат идут первыми: обход берёт кандидатов по возрастанию индекса, и когда
+  // такие банки пройдены, остальные ветки отсекаются сразу
+  const fitsAny = (jar: Jar) => aromas.some(test => knownFlavors(jar, scoreCtx).some(test));
+  const jars = aromas.length
+    ? [...ctx.jars.filter(fitsAny), ...ctx.jars.filter(jar => !fitsAny(jar))]
+    : ctx.jars;
   const edges = jarEdges(jars, scoreCtx, gate);
+  const fits = jars.map(jar => aromas.map(test => knownFlavors(jar, scoreCtx).some(test)));
   const allPairs = jarCount * (jarCount - 1) / 2;
   const top: { jars: Jar[]; harmony: number }[] = [];
   let scored = 0;
@@ -315,9 +322,10 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ct
     }
   };
 
-  const walk = (chosen: number[], candidates: number[], sum: number, count: number, weakest: number): void => {
+  const walk = (chosen: number[], candidates: number[], sum: number, count: number, weakest: number,
+    missing: number[]): void => {
     if (chosen.length === jarCount) {
-      if (requireUnknown && weakest > LEVEL_WEIGHT.unknown) {
+      if (missing.length || (requireUnknown && weakest > LEVEL_WEIGHT.unknown)) {
         return;
       }
       scored++;
@@ -344,17 +352,26 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ct
       if ((nextSum + rest) / (nextCount + rest) <= worst()) {
         continue;
       }
+      const nextMissing = missing.length ? missing.filter(aroma => !fits[candidate][aroma]) : missing;
+      if (need === 1 && nextMissing.length) {
+        continue;
+      }
       const next: number[] = [];
       for (let other = index + 1; other < candidates.length; other++) {
         if (edges[candidate][candidates[other]].ok) {
           next.push(candidates[other]);
         }
       }
-      walk([...chosen, candidate], next, nextSum, nextCount, nextWeakest);
+      // Аромат, которого нет ни в выбранных банках, ни среди кандидатов ветки, в ней уже не появится.
+      // Граница по баллу такие ветки не режет: миксы без аромата бывают сильнее всего, что попало в топ
+      if (nextMissing.some(aroma => !next.some(other => fits[other][aroma]))) {
+        continue;
+      }
+      walk([...chosen, candidate], next, nextSum, nextCount, nextWeakest, nextMissing);
     }
   };
 
-  walk([], jars.map((_, index) => index), 0, 0, 1);
+  walk([], jars.map((_, index) => index), 0, 0, 1, aromas.map((_, index) => index));
 
   const items = top
     .map(entry => scoreMix(entry.jars, scoreCtx))
@@ -368,7 +385,8 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ct
  * Карточки полки: без уже попробованного, без почти одинаковых миксов и без вкуса,
  * занявшего больше половины выдачи. Правила снимаются, если иначе карточек не хватает.
  */
-function selectItems(candidates: Recommendation[], jarCount: number, limit: number, ctx: PicksContext):
+function selectItems(candidates: Recommendation[], jarCount: number, limit: number, aromas: FlavorTest[],
+  ctx: PicksContext):
   { items: Recommendation[]; skippedTried: number; skippedRejected: number; hiddenRepeats: number } {
   // Сравниваем миксы по известным вкусам: в банке может стоять вкус, пропавший из справочника,
   // а в баллах такого вкуса нет
@@ -401,6 +419,8 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
   // вместе с числом банок в миксе, иначе на миксах из четырёх банок карточек не набирается
   const shelfFlavors = new Set(ctx.jars.flatMap(jar => jar.flavors.filter(flavor => ctx.knows(flavor))));
   const flavorLimit = Math.max(2, Math.ceil(CARDS_PER_PAGE * jarCount / Math.max(1, shelfFlavors.size)));
+  const limits = aromaLimits(aromas, flavorLimit, ctx);
+  const limitOf = (flavor: string) => limits.get(flavor) ?? flavorLimit;
   const picked: Recommendation[] = [];
   const postponed: Recommendation[] = [];
   const seen = new Map<string, number>();
@@ -408,7 +428,7 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
   for (const item of pool) {
     const tooClose = jarCount > 2 && picked.some(other =>
       other.jarIds.filter(id => item.jarIds.includes(id)).length >= jarCount - 1);
-    const tooOften = item.flavors.some(flavor => (seen.get(flavor) ?? 0) >= flavorLimit);
+    const tooOften = item.flavors.some(flavor => (seen.get(flavor) ?? 0) >= limitOf(flavor));
     if (tooClose || tooOften) {
       postponed.push(item);
       continue;
@@ -431,15 +451,36 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
   return { items, skippedTried, skippedRejected, hiddenRepeats: postponed.length - tail.length };
 }
 
-function buildShelf(jarCount: number, risk: Risk, limit: number, ctx: PicksContext, scoreCtx: ScoreContext): PickShelf {
+/**
+ * Вкус из фильтра аромата, который есть во всех подходящих банках, стоит в каждой карточке,
+ * и ограничение его не касается. Несколько подходящих вкусов делят страницу поровну.
+ */
+function aromaLimits(aromas: FlavorTest[], flavorLimit: number, ctx: PicksContext): Map<string, number> {
+  const limits = new Map<string, number>();
+  aromas.forEach(test => {
+    const fitting = ctx.jars
+      .map(jar => jar.flavors.filter(flavor => ctx.knows(flavor) && test(flavor)))
+      .filter(flavors => flavors.length);
+    const matching = new Set(fitting.flat());
+    matching.forEach(flavor => {
+      const forced = fitting.every(flavors => flavors.includes(flavor));
+      const limit = forced ? Infinity : Math.ceil(CARDS_PER_PAGE / matching.size);
+      limits.set(flavor, Math.max(limits.get(flavor) ?? flavorLimit, limit));
+    });
+  });
+  return limits;
+}
+
+function buildShelf(jarCount: number, risk: Risk, limit: number, aromas: FlavorTest[], ctx: PicksContext,
+  scoreCtx: ScoreContext): PickShelf {
   const found: Recommendation[] = [];
   const seen = new Set<string>();
   let used = risk;
   let scored = 0;
-  let selected = selectItems(found, jarCount, limit, ctx);
+  let selected = selectItems(found, jarCount, limit, aromas, ctx);
 
   for (const current of RISK_ORDER.slice(RISK_ORDER.indexOf(risk))) {
-    const search = searchMixes(jarCount, RISK_GATE[current], requiresUnknownPair(current), ctx, scoreCtx);
+    const search = searchMixes(jarCount, RISK_GATE[current], requiresUnknownPair(current), aromas, ctx, scoreCtx);
     // Ослабление добавляет миксы к уже найденным: смелые это другой набор, и заменять им
     // красные пары нельзя
     search.items.forEach(item => {
@@ -454,7 +495,7 @@ function buildShelf(jarCount: number, risk: Risk, limit: number, ctx: PicksConte
     used = current;
     // Считаем карточки, а не кандидатов: попробованные и скрытые уходят из выдачи,
     // и без ослабления полка осталась бы пустой
-    selected = selectItems(found, jarCount, limit, ctx);
+    selected = selectItems(found, jarCount, limit, aromas, ctx);
     if (selected.items.length >= 3) {
       break;
     }
@@ -484,6 +525,7 @@ export function recommend(request: PicksRequest, ctx: PicksContext): PicksResult
   const affinity = request.usePersonal ? affinities(ctx.mixes) : undefined;
   const scoreCtx: ScoreContext = { ...ctx, affinity };
   const limit = request.limit ?? DEFAULT_LIMIT;
+  const aromas = request.aromas ?? [];
 
   const counts = request.jarCount === 'any'
     ? [2, 3, 4, ...(ctx.jars.length >= 10 ? [5] : [])]
@@ -491,7 +533,7 @@ export function recommend(request: PicksRequest, ctx: PicksContext): PicksResult
 
   const shelves = counts
     .filter(jarCount => jarCount <= ctx.jars.length)
-    .map(jarCount => buildShelf(jarCount, request.risk, limit, ctx, scoreCtx));
+    .map(jarCount => buildShelf(jarCount, request.risk, limit, aromas, ctx, scoreCtx));
 
   return { shelves, chosen: request.jarCount === 'any' ? chooseCount(shelves) : undefined };
 }

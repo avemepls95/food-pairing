@@ -1,15 +1,19 @@
 import { Component, inject, OnInit, viewChild } from '@angular/core';
+import { Aroma, aromaTest } from '../../Core/graph/aroma';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
 import { newId } from '../../Core/library/id';
 import { Jar } from '../../Core/library/jar';
 import { LibraryStore } from '../../Core/library/library-store';
 import { Mix, MixCategory, MixItem } from '../../Core/library/mix';
+import { AromaFilterComponent } from '../aroma-filter/aroma-filter.component';
+import { readAromas, writeAromas } from '../aroma-filter/aroma-storage';
 import { MixFormComponent } from '../mix-form/mix-form.component';
 import { NavComponent } from '../nav/nav.component';
 import { PickShelf, PicksResult, Recommendation, Risk } from './recommendation';
 import { flavorKey, recommend } from './recommender';
 
 const SETTINGS_KEY = 'food-pairing.picks-settings';
+const AROMA_KEY = 'food-pairing.picks-aroma';
 const PAGE_SIZE = 6;
 
 interface Settings {
@@ -21,7 +25,7 @@ interface Settings {
 
 @Component({
   selector: 'app-picks',
-  imports: [MixFormComponent, NavComponent],
+  imports: [AromaFilterComponent, MixFormComponent, NavComponent],
   templateUrl: './picks.component.html',
   styleUrl: './picks.component.css'
 })
@@ -48,6 +52,9 @@ export class PicksComponent implements OnInit {
   };
 
   jars: Jar[] = [];
+  /** Вкусы полки, которые знает справочник: только они попадают в подбор */
+  shelfFlavors: string[] = [];
+  aromas: Aroma[] = [];
   answered = false;
   jarCount: number | 'any' = 'any';
   risk: Risk = 'balanced';
@@ -68,6 +75,9 @@ export class PicksComponent implements OnInit {
     }
     this.store.load(text => this.data.canonical(text));
     this.jars = this.store.jars();
+    this.shelfFlavors = Array.from(new Set(this.jars.flatMap(jar => jar.flavors)))
+      .filter(flavor => !!this.data.node(flavor));
+    this.aromas = readAromas(AROMA_KEY);
     this.hasRatings = this.store.mixes().some(mix => mix.category === 'tried' && !!mix.rating);
     this.restoreSettings();
     if (this.answered) {
@@ -98,6 +108,13 @@ export class PicksComponent implements OnInit {
     this.risk = risk;
     this.limit = PAGE_SIZE;
     this.saveSettings();
+    this.calculate();
+  }
+
+  setAromas(aromas: Aroma[]): void {
+    this.aromas = aromas;
+    this.limit = PAGE_SIZE;
+    writeAromas(AROMA_KEY, aromas);
     this.calculate();
   }
 
@@ -228,7 +245,8 @@ export class PicksComponent implements OnInit {
         jarCount: this.jarCount,
         risk: this.risk,
         usePersonal: this.usePersonal && this.hasRatings,
-        limit: this.limit
+        limit: this.limit,
+        aromas: this.aromas.map(aroma => aromaTest(aroma, flavor => this.data.categoryOf(flavor)))
       }, {
         jars: this.jars,
         mixes: this.store.mixes(),
