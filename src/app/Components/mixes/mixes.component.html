@@ -26,6 +26,11 @@
     </button>
   </div>
 
+  @if (mixes.length || aromas.length) {
+    <app-aroma-filter class="card aroma" [flavors]="mixFlavors" [selected]="aromas" where="в миксах"
+                      (changed)="setAromas($event)"></app-aroma-filter>
+  }
+
   <section class="list">
     @for (mix of visibleMixes; track mix.id) {
       <article class="card mix" [class.just-saved]="mix.id === justSavedId" (click)="editMix(mix)">
@@ -77,12 +82,21 @@
         </div>
       </article>
     } @empty {
-      <div class="empty">
-        <p class="hint">
-          {{ tab === 'tried' ? 'Пока пусто. Добавьте микс, который уже пробовали' : 'Пока пусто. Добавьте микс, который хотите попробовать' }}
-        </p>
-        <button type="button" class="btn btn-primary" (click)="addMix()">Добавить микс</button>
-      </div>
+      @if (aromas.length) {
+        <div class="empty">
+          <p class="hint">
+            {{ tab === 'tried' ? 'Среди попробованных' : 'Среди планов' }} нет миксов с выбранным ароматом
+          </p>
+          <button type="button" class="btn" (click)="setAromas([])">Сбросить аромат</button>
+        </div>
+      } @else {
+        <div class="empty">
+          <p class="hint">
+            {{ tab === 'tried' ? 'Пока пусто. Добавьте микс, который уже пробовали' : 'Пока пусто. Добавьте микс, который хотите попробовать' }}
+          </p>
+          <button type="button" class="btn btn-primary" (click)="addMix()">Добавить микс</button>
+        </div>
+      }
     }
   </section>
 

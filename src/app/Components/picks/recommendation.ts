@@ -1,3 +1,4 @@
+import { FlavorTest } from '../../Core/graph/aroma';
 import { FlavorRole } from '../../Core/graph/categories';
 import { PairLevel } from '../../Core/graph/graph-data';
 import { Jar } from '../../Core/library/jar';
@@ -76,6 +77,8 @@ export interface PicksRequest {
   risk: Risk;
   usePersonal: boolean;
   limit?: number;
+  /** Фильтр аромата: каждое условие выполняет хотя бы один вкус микса */
+  aromas?: FlavorTest[];
 }
 
 export interface PicksContext extends ScoreContext {
