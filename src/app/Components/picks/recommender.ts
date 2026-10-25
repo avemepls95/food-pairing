@@ -30,6 +30,13 @@ export const RISK_GATE: Record<Risk, number> = {
   bold: LEVEL_WEIGHT.unknown
 };
 
+/**
+ * Смелые миксы это не ослабленный порог, а свой набор: в миксе обязательно есть пара,
+ * которую никто не измерял. Иначе режим показывал бы те же лучшие миксы, что и остальные:
+ * они собраны из красных пар и проходят любой порог.
+ */
+const requiresUnknownPair = (risk: Risk) => risk === 'bold';
+
 const STRUCTURE_PART = 0.12;
 const PERSONAL_PART = 0.15;
 // Балл показываем от 0 до 100, поэтому raw растягиваем между худшим и лучшим возможным
@@ -260,7 +267,7 @@ function jarEdges(jars: Jar[], ctx: ScoreContext, gate: number): { edges: JarEdg
  * Перебор клик в графе банок. Полный балл клики стоит дорого, поэтому обход считает только
  * сочетаемость, а балл получают лучшие по ней.
  */
-function searchMixes(jarCount: number, gate: number, ctx: PicksContext, scoreCtx: ScoreContext):
+function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ctx: PicksContext, scoreCtx: ScoreContext):
   { items: Recommendation[]; total: number } {
   const jars = ctx.jars;
   const { edges, maxCount } = jarEdges(jars, scoreCtx, gate);
@@ -281,8 +288,11 @@ function searchMixes(jarCount: number, gate: number, ctx: PicksContext, scoreCtx
     }
   };
 
-  const walk = (chosen: number[], candidates: number[], sum: number, count: number): void => {
+  const walk = (chosen: number[], candidates: number[], sum: number, count: number, weakest: number): void => {
     if (chosen.length === jarCount) {
+      if (requireUnknown && weakest > LEVEL_WEIGHT.unknown) {
+        return;
+      }
       total++;
       keep(chosen, sum / count);
       return;
@@ -295,9 +305,11 @@ function searchMixes(jarCount: number, gate: number, ctx: PicksContext, scoreCtx
       const candidate = candidates[index];
       let nextSum = sum;
       let nextCount = count;
+      let nextWeakest = weakest;
       for (const picked of chosen) {
         nextSum += edges[picked][candidate].sum;
         nextCount += edges[picked][candidate].count;
+        nextWeakest = Math.min(nextWeakest, edges[picked][candidate].weakest);
       }
       // Оптимистичная оценка: все недостающие пары по единице
       const taken = (chosen.length + 1) * chosen.length / 2;
@@ -311,11 +323,11 @@ function searchMixes(jarCount: number, gate: number, ctx: PicksContext, scoreCtx
           next.push(candidates[other]);
         }
       }
-      walk([...chosen, candidate], next, nextSum, nextCount);
+      walk([...chosen, candidate], next, nextSum, nextCount, nextWeakest);
     }
   };
 
-  walk([], jars.map((_, index) => index), 0, 0);
+  walk([], jars.map((_, index) => index), 0, 0, 1);
 
   const items = top
     .map(entry => scoreMix(entry.jars, scoreCtx))
@@ -383,10 +395,14 @@ function buildShelf(jarCount: number, risk: Risk, limit: number, ctx: PicksConte
   let total = 0;
 
   for (const current of RISK_ORDER.slice(RISK_ORDER.indexOf(risk))) {
-    const search = searchMixes(jarCount, RISK_GATE[current], ctx, scoreCtx);
-    used = current;
-    found = search.items;
-    total = search.total;
+    const search = searchMixes(jarCount, RISK_GATE[current], requiresUnknownPair(current), ctx, scoreCtx);
+    // Смелые это другой набор, а не более широкий, поэтому ослабление берём только когда
+    // оно действительно добавляет карточки
+    if (!found.length || search.items.length > found.length) {
+      used = current;
+      found = search.items;
+      total = search.total;
+    }
     if (found.length >= 3) {
       break;
     }

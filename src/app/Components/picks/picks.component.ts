@@ -36,6 +36,11 @@ export class PicksComponent implements OnInit {
     { value: 'balanced', label: 'Сбалансированные' },
     { value: 'bold', label: 'Смелые' }
   ];
+  readonly riskHints: Record<Risk, string> = {
+    safe: 'Все пары описаны как сильные: зелёный уровень и выше',
+    balanced: 'Все пары описаны в таблицах',
+    bold: 'Есть пара, которую никто не измерял'
+  };
   readonly riskNames: Record<Risk, string> = {
     safe: 'проверенные',
     balanced: 'сбалансированные',

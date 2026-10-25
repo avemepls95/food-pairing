@@ -75,6 +75,36 @@ describe('recommend: гейты', () => {
     expect(flavorsOf(result.shelves[0].items).some(key => key.includes('лайм'))).toBe(false);
   });
 
+  it('режим смелые => показываются только миксы с парой без данных', () => {
+    const jars = jarsOf('вишня', 'мята', 'лайм', 'малина');
+    // Пара вишни с лаймом не описана, остальные пары красные
+    const level = (a: string, b: string): PairLevel =>
+      pairKey(a, b) === pairKey('вишня', 'лайм') ? 'unknown' : 'red';
+
+    const result = recommend(request({ risk: 'bold' }), context(jars, { level }));
+
+    expect(flavorsOf(result.shelves[0].items)).toEqual(['вишня+лайм']);
+  });
+
+  it('режим сбалансированные => пара без данных не показывается', () => {
+    const jars = jarsOf('вишня', 'мята', 'лайм', 'малина');
+    const level = (a: string, b: string): PairLevel =>
+      pairKey(a, b) === pairKey('вишня', 'лайм') ? 'unknown' : 'red';
+
+    const result = recommend(request({ risk: 'balanced' }), context(jars, { level }));
+
+    expect(flavorsOf(result.shelves[0].items)).not.toContain('вишня+лайм');
+    expect(result.shelves[0].items.length).toBeGreaterThan(0);
+  });
+
+  it('все пары описаны => в смелых пусто', () => {
+    const jars = jarsOf('вишня', 'мята', 'лайм');
+
+    const result = recommend(request({ risk: 'bold' }), context(jars));
+
+    expect(result.shelves[0].items).toEqual([]);
+  });
+
   it('гейт прошло меньше трёх миксов => режим ослабляется и relaxed true', () => {
     const jars = jarsOf('вишня', 'мята', 'лайм', 'малина');
     const level = (a: string, b: string): PairLevel =>

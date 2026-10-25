@@ -37,6 +37,7 @@
                       (click)="setRisk(mode.value)">{{ mode.label }}</button>
             }
           </div>
+          <p class="hint">{{ riskHints[risk] }}</p>
         </div>
 
         @if (hasRatings) {
