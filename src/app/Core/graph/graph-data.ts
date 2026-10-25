@@ -33,7 +33,16 @@ export interface GraphNode {
 export interface GraphLink {
   source: string;
   target: string;
+  /** Самый сильный уровень из всех таблиц: им рисуется граф */
   value: Level;
+  /**
+   * Уровень по согласию сторон. Таблица это личный топ продукта, и стороны расходятся:
+   * из 2468 пар, описанных с двух сторон, точно совпали 54% при случайных 47%. Подбор
+   * опирается на согласие, а при расхождении берёт уровень ближе к слабому.
+   */
+  agreed: Level;
+  /** Сколько продуктов пары описали её своей таблицей: один или два */
+  sides: number;
 }
 
 export interface Graph {
@@ -49,6 +58,7 @@ export interface FlavorGroup {
 
 const levelByColor: Record<string, Level> = { R: 'red', O: 'yellow', G: 'green', B: 'blue', P: 'pale' };
 const levelRank: Record<Level, number> = { red: 5, yellow: 4, green: 3, blue: 2, pale: 1 };
+const levelByRank: Level[] = ['pale', 'pale', 'blue', 'green', 'yellow', 'red'];
 
 // В таблицах одно и то же пишется по-разному: "Ч.смородина", "ч. смородина", "ч, смородина"
 export function toKey(text: string): string {
@@ -59,12 +69,19 @@ export function pairKey(a: string, b: string): string {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
-export function buildPairIndex(links: GraphLink[]): Map<string, Level> {
-  return new Map(links.map(link => [pairKey(link.source, link.target), link.value]));
+export function buildPairIndex(links: GraphLink[]): Map<string, GraphLink> {
+  return new Map(links.map(link => [pairKey(link.source, link.target), link]));
 }
 
-export function levelOf(index: Map<string, Level>, a: string, b: string): PairLevel {
-  return index.get(pairKey(a, b)) ?? 'unknown';
+/** Самый сильный уровень пары: им рисуется граф */
+export function levelOf(index: Map<string, GraphLink>, a: string, b: string): PairLevel {
+  return index.get(pairKey(a, b))?.value ?? 'unknown';
+}
+
+/** Уровень по согласию сторон и число описавших сторон: ими пользуется подбор */
+export function agreedOf(index: Map<string, GraphLink>, a: string, b: string): { level: PairLevel; sides: number } {
+  const link = index.get(pairKey(a, b));
+  return { level: link?.agreed ?? 'unknown', sides: link?.sides ?? 0 };
 }
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
@@ -104,7 +121,8 @@ export function buildGraph(tables: PairingTable[], products: Product[]): Graph {
     return name;
   };
 
-  const links = new Map<string, GraphLink>();
+  // Наблюдения храним по сторонам: у продукта может быть две таблицы, но сторона всё равно одна
+  const observations = new Map<string, { source: string; target: string; bySide: Map<string, Level> }>();
   tables.forEach(table => {
     const source = resolve(table.header, 'Без категории')!;
     table.columns.forEach(column => column.cells.forEach(([text, color]) => {
@@ -113,14 +131,30 @@ export function buildGraph(tables: PairingTable[], products: Product[]): Graph {
       const target = resolve(text, column.category, value === 'pale');
       if (!target || target === source) return;
       const key = pairKey(source, target);
-      const existing = links.get(key);
-      if (!existing || levelRank[value] > levelRank[existing.value]) {
-        links.set(key, { source, target, value });
+      if (!observations.has(key)) {
+        observations.set(key, { source, target, bySide: new Map() });
+      }
+      const bySide = observations.get(key)!.bySide;
+      const seen = bySide.get(source);
+      if (!seen || levelRank[value] > levelRank[seen]) {
+        bySide.set(source, value);
       }
     }));
   });
 
-  return { nodes: Array.from(nodes.values()), links: Array.from(links.values()) };
+  const links = Array.from(observations.values(), ({ source, target, bySide }) => {
+    const ranks = Array.from(bySide.values(), level => levelRank[level]);
+    const mean = ranks.reduce((sum, rank) => sum + rank, 0) / ranks.length;
+    return {
+      source,
+      target,
+      value: levelByRank[Math.max(...ranks)],
+      agreed: levelByRank[Math.floor(mean)],
+      sides: ranks.length
+    } satisfies GraphLink;
+  });
+
+  return { nodes: Array.from(nodes.values()), links };
 }
 
 /** Вкусы по категориям для списков выбора: категории и вкусы по алфавиту */

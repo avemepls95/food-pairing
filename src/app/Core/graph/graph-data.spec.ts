@@ -63,6 +63,41 @@ describe('buildGraph', () => {
     expect(level).toBe('unknown');
   });
 
+  it('пара описана двумя сторонами по-разному => value максимум, agreed ближе к слабой', () => {
+    const tables = [table('Вишня', [['Мята', 'R']], 'Травы'), table('Мята', [['Вишня', 'B']])];
+
+    const link = buildGraph(tables, products).links[0];
+
+    expect(link.value).toBe('red');
+    expect(link.agreed).toBe('green');
+    expect(link.sides).toBe(2);
+  });
+
+  it('пара описана одной стороной => agreed равен value, sides 1', () => {
+    const link = buildGraph([table('Вишня', [['Мята', 'R']], 'Травы')], products).links[0];
+
+    expect(link.agreed).toBe('red');
+    expect(link.sides).toBe(1);
+  });
+
+  it('обе стороны согласны => agreed тот же уровень', () => {
+    const tables = [table('Вишня', [['Мята', 'G']], 'Травы'), table('Мята', [['Вишня', 'G']])];
+
+    expect(buildGraph(tables, products).links[0].agreed).toBe('green');
+  });
+
+  it('у продукта две таблицы => это одна сторона, а не две', () => {
+    const tables = [
+      table('Вишня', [['Мята', 'R']], 'Травы'),
+      table('Вишня', [['Мята', 'B']], 'Травы')
+    ];
+
+    const link = buildGraph(tables, products).links[0];
+
+    expect(link.sides).toBe(1);
+    expect(link.agreed).toBe('red');
+  });
+
   it('реальные данные => 190 узлов, 6470 пар, из них 3873 бледные', () => {
     const data = (name: string) =>
       JSON.parse(readFileSync(resolve(import.meta.dirname, '../../../../public/data', name), 'utf8'));
@@ -72,6 +107,20 @@ describe('buildGraph', () => {
     expect(graph.nodes).toHaveLength(190);
     expect(graph.links).toHaveLength(6470);
     expect(graph.links.filter(link => link.value === 'pale')).toHaveLength(3873);
+  });
+
+  it('реальные данные => красных по согласию сторон меньше, чем по максимуму', () => {
+    const data = (name: string) =>
+      JSON.parse(readFileSync(resolve(import.meta.dirname, '../../../../public/data', name), 'utf8'));
+
+    const graph = buildGraph(data('tables.json') as PairingTable[], data('products.json') as Product[]);
+    const red = graph.links.filter(link => link.value === 'red').length;
+    const agreedRed = graph.links.filter(link => link.agreed === 'red').length;
+    const oneSided = graph.links.filter(link => link.sides === 1).length;
+
+    expect(red).toBe(355);
+    expect(agreedRed).toBeLessThan(red);
+    expect(oneSided).toBeGreaterThan(0);
   });
 });
 

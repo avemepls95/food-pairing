@@ -33,6 +33,7 @@ const context = (jars: Jar[], patch: Partial<PicksContext> = {}): PicksContext =
   mixes: [],
   rejected: [],
   level: () => 'red',
+  sides: () => 2,
   categoryOf: flavor => CATEGORIES[flavor],
   knows: flavor => flavor in CATEGORIES,
   hasTable: () => true,
@@ -351,6 +352,16 @@ describe('recommend: число банок', () => {
     const result = recommend(request({ jarCount: 'any' }), context(jars));
 
     expect(result.shelves.map(shelf => shelf.jarCount)).toEqual([2, 3, 4, 5]);
+  });
+
+  it('лучшие карточки полок равны => выбирается большее число банок', () => {
+    const jars = jarsOf(...BIG_SHELF);
+
+    const result = recommend(request({ jarCount: 'any' }), context(jars));
+    const best = (count: number) => result.shelves.find(shelf => shelf.jarCount === count)!.items[0].score;
+
+    expect(result.chosen).toBeGreaterThan(2);
+    expect(best(result.chosen!)).toBeGreaterThanOrEqual(best(2) - 5);
   });
 
   it('полка с одной карточкой => выбирают ту, где карточек хватает', () => {

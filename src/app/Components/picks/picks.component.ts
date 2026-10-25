@@ -234,6 +234,7 @@ export class PicksComponent implements OnInit {
         mixes: this.store.mixes(),
         rejected: this.store.rejected(),
         level: (a, b) => this.data.level(a, b),
+        sides: (a, b) => this.data.sides(a, b),
         categoryOf: flavor => this.data.categoryOf(flavor),
         knows: flavor => !!this.data.node(flavor),
         hasTable: flavor => this.data.hasTable(flavor)

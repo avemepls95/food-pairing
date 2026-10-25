@@ -1,13 +1,13 @@
 import { Injectable } from '@angular/core';
 import {
+  agreedOf,
   buildGraph,
   buildPairIndex,
   FlavorGroup,
   Graph,
+  GraphLink,
   GraphNode,
   groupFlavors,
-  Level,
-  levelOf,
   PairingTable,
   PairLevel,
   Product,
@@ -24,7 +24,7 @@ const EMPTY: Graph = { nodes: [], links: [] };
 export class GraphDataService {
   private pending: Promise<Graph> | undefined;
   private graph: Graph = EMPTY;
-  private pairs = new Map<string, Level>();
+  private pairs = new Map<string, GraphLink>();
   private nodeById = new Map<string, GraphNode>();
   private canonicalByKey = new Map<string, string>();
   private groups: FlavorGroup[] = [];
@@ -38,8 +38,14 @@ export class GraphDataService {
     return this.pending;
   }
 
+  /** Уровень пары по согласию сторон: таблицы продуктов расходятся, и подбор берёт среднее */
   level(a: string, b: string): PairLevel {
-    return levelOf(this.pairs, a, b);
+    return agreedOf(this.pairs, a, b).level;
+  }
+
+  /** Сколько продуктов пары описали её своей таблицей */
+  sides(a: string, b: string): number {
+    return agreedOf(this.pairs, a, b).sides;
   }
 
   node(id: string): GraphNode | undefined {

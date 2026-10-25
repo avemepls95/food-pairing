@@ -206,6 +206,12 @@
   background: var(--border-strong);
 }
 
+/* Пару описала только одна из двух таблиц */
+.pair.one-sided {
+  border: 1px dashed var(--border-strong);
+  padding: 2px 7px;
+}
+
 .marks {
   display: flex;
   flex-wrap: wrap;

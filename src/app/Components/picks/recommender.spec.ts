@@ -17,6 +17,7 @@ const CATEGORIES: Record<string, string> = {
 
 const context = (patch: Partial<ScoreContext> = {}): ScoreContext => ({
   level: () => 'red',
+  sides: () => 2,
   categoryOf: flavor => CATEGORIES[flavor],
   knows: flavor => flavor in CATEGORIES,
   hasTable: () => true,
@@ -76,9 +77,32 @@ describe('crossPairs', () => {
   });
 });
 
+describe('уверенность в паре', () => {
+  it('пара описана одной стороной => карточка это несёт', () => {
+    const mix = scoreMix([jar('вишня'), jar('мята')], context({ sides: () => 1 }));
+
+    expect(mix?.pairs[0].sides).toBe(1);
+    expect(mix?.oneSided).toBe(1);
+  });
+
+  it('обе стороны описали пары => односторонних нет', () => {
+    const mix = scoreMix([jar('вишня'), jar('мята')], context());
+
+    expect(mix?.oneSided).toBe(0);
+  });
+});
+
 describe('structureScore', () => {
-  it('основы нет => структура уходит в минус', () => {
-    expect(structureScore(['мята', 'кола'], context())).toBeLessThan(0);
+  it('состав из одних акцентов => структура уходит в минус', () => {
+    expect(structureScore(['мята', 'имбирь'], context())).toBeLessThan(0);
+  });
+
+  it('состав без фруктов, но с телом => структура не в минусе', () => {
+    expect(structureScore(['кола', 'кофе'], context())).toBeGreaterThanOrEqual(0);
+  });
+
+  it('все вкусы одной категории и их больше двух => штраф за плоский состав', () => {
+    expect(structureScore(['вишня', 'малина', 'клубника'], context())).toBe(-0.3);
   });
 
   it('один акцент => структура выше, чем без акцента', () => {
@@ -128,6 +152,21 @@ describe('scoreMix', () => {
     const mix = scoreMix([jar('вишня'), jar('малина')], context());
 
     expect(mix?.score).toBe(93);
+  });
+
+  it('микс со слабой парой => балл ниже, чем у ровного микса с тем же средним', () => {
+    const levels: Record<string, PairLevel> = {
+      [pairKey('вишня', 'малина')]: 'red',
+      [pairKey('вишня', 'клубника')]: 'red',
+      [pairKey('малина', 'клубника')]: 'blue'
+    };
+    const uneven = scoreMix([jar('вишня'), jar('малина'), jar('клубника')],
+      context({ level: (a, b) => levels[pairKey(a, b)] ?? 'unknown' }));
+    const even = scoreMix([jar('вишня'), jar('малина'), jar('клубника')],
+      context({ level: () => 'yellow' }));
+
+    expect(uneven!.harmony).toBeCloseTo(even!.harmony, 2);
+    expect(uneven!.score).toBeLessThan(even!.score);
   });
 
   it('все пары синие => балл ниже, чем у красных', () => {

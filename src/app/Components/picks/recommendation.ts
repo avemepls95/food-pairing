@@ -11,6 +11,8 @@ export interface ScoredPair {
   b: string;
   level: PairLevel;
   weight: number;
+  /** Сколько сторон описали пару: один продукт из пары или оба */
+  sides: number;
 }
 
 export interface MixComponent {
@@ -27,7 +29,10 @@ export interface Affinity {
 }
 
 export interface ScoreContext {
+  /** Уровень пары по согласию сторон */
   level(a: string, b: string): PairLevel;
+  /** Сколько продуктов пары описали её своей таблицей */
+  sides(a: string, b: string): number;
   categoryOf(flavor: string): string | undefined;
   /** Вкус есть в справочнике: пропавшие вкусы в подборе не участвуют */
   knows(flavor: string): boolean;
@@ -48,6 +53,8 @@ export interface Recommendation {
   personal: number;
   /** Среди вкусов есть те, у кого нет своей таблицы */
   thinData: boolean;
+  /** Сколько пар описаны только одной стороной */
+  oneSided: number;
   /** Такой же набор вкусов уже лежит в планах */
   planned: boolean;
   /** Карточка повторяет вкусы тех, что выше, и добрана, чтобы выдача не выродилась */

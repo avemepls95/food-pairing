@@ -118,7 +118,8 @@
 
                 <div class="pairs">
                   @for (pair of item.pairs; track pair.a + pair.b) {
-                    <span class="pair">
+                    <span class="pair" [class.one-sided]="pair.sides < 2"
+                          [title]="pair.sides < 2 ? 'Пару описала только одна из двух таблиц' : ''">
                       <span class="dot {{ levelClass(pair.level) }}"></span>{{ pair.a }} и {{ pair.b }}
                     </span>
                   }
@@ -127,6 +128,9 @@
                 <div class="marks">
                   @if (item.thinData) {
                     <span class="mark">мало данных</span>
+                  }
+                  @if (item.oneSided) {
+                    <span class="mark">пар с одной стороны: {{ item.oneSided }}</span>
                   }
                   @if (item.planned) {
                     <span class="mark planned">в планах</span>

@@ -39,6 +39,8 @@ const requiresUnknownPair = (risk: Risk) => risk === 'bold';
 
 const STRUCTURE_PART = 0.12;
 const PERSONAL_PART = 0.15;
+/** Доля самой слабой пары в силе микса: остальное среднее по связям банок */
+const WEAKEST_PART = 0.2;
 /** Выше структура не поднимается: плюс за один акцент и плюс за разные категории */
 const STRUCTURE_MAX = 0.75;
 // Балл от 0 до 100 растянут между худшим и лучшим достижимым raw. Личные оценки в размах
@@ -68,7 +70,7 @@ export function crossPairGroups(jars: Jar[], ctx: ScoreContext): ScoredPair[][] 
         for (const b of flavors[j]) {
           if (a === b) continue;
           const level = ctx.level(a, b);
-          group.push({ a, b, level, weight: LEVEL_WEIGHT[level] });
+          group.push({ a, b, level, weight: LEVEL_WEIGHT[level], sides: ctx.sides(a, b) });
         }
       }
       if (group.length) {
@@ -86,24 +88,25 @@ export function crossPairs(jars: Jar[], ctx: ScoreContext): ScoredPair[] {
 
 /**
  * Композиция микса: есть ли тело, один ли акцент, насколько разные категории.
+ * Телом работает любой вкус, кроме трав, специй и цветов: десертные и гастрономические
+ * составы для кальяна такие же рабочие, как фруктовые.
  */
 export function structureScore(flavors: string[], ctx: ScoreContext): number {
   const roles = flavors.map(flavor => roleOfCategory(ctx.categoryOf(flavor)));
-  const bases = roles.filter(role => role === 'base').length;
   const accents = roles.filter(role => role === 'accent').length;
   const categories = new Set(flavors.map(flavor => ctx.categoryOf(flavor) ?? '')).size;
 
   let score = 0;
-  if (!bases) {
-    score -= 0.8;
+  if (accents === flavors.length) {
+    score -= 0.5;
   }
   if (accents === 1) {
     score += 0.5;
   } else if (accents > 1) {
-    score -= 0.4 * (accents - 1);
+    score -= 0.2 * (accents - 1);
   }
   score += 0.25 * (categories - 1) / Math.max(1, flavors.length - 1);
-  if (bases === flavors.length && flavors.length > 2) {
+  if (categories === 1 && flavors.length > 2) {
     score -= 0.3;
   }
 
@@ -206,7 +209,9 @@ export function scoreMix(jars: Jar[], ctx: ScoreContext): Recommendation | undef
   const flavors = Array.from(new Set(jars.flatMap(jar => knownFlavors(jar, ctx))));
   const structure = structureScore(flavors, ctx);
   const personal = personalScore(flavors, pairs, ctx.affinity);
-  const raw = harmony + STRUCTURE_PART * structure + PERSONAL_PART * personal;
+  // Слабая пара заметна даже в хорошем миксе, поэтому пятая часть балла идёт от неё
+  const strength = WEAKEST_PART * weakest + (1 - WEAKEST_PART) * harmony;
+  const raw = strength + STRUCTURE_PART * structure + PERSONAL_PART * personal;
 
   const roles = jars.map(jar => jarRole(jar, ctx));
   const parts = shares(roles);
@@ -223,6 +228,7 @@ export function scoreMix(jars: Jar[], ctx: ScoreContext): Recommendation | undef
     structure,
     personal,
     thinData: flavors.some(flavor => !ctx.hasTable(flavor)),
+    oneSided: pairs.filter(pair => pair.sides < 2).length,
     planned: false,
     repeat: false
   };
@@ -468,7 +474,7 @@ function chooseCount(shelves: PickShelf[]): number | undefined {
   if (!filled.length) {
     return undefined;
   }
-  const topScore = (shelf: PickShelf) => mean(shelf.items.slice(0, CHOSEN_SAMPLE).map(item => item.score));
+  const topScore = (shelf: PickShelf) => shelf.items[0].score;
   const best = Math.max(...filled.map(topScore));
 
   return filled.filter(shelf => topScore(shelf) >= best - CHOSEN_GAP).map(shelf => shelf.jarCount).at(-1);
