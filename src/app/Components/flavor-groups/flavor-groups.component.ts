@@ -150,8 +150,10 @@ export class FlavorGroupsComponent {
   }
 
   removeGroup(group: FlavorGroup): void {
-    this.store.removeGroup(group.id);
-    this.change();
+    if (confirm(`Удалить группу «${group.name}»?`)) {
+      this.store.removeGroup(group.id);
+      this.change();
+    }
   }
 
   /** Чего не хватает, чтобы сохранить */

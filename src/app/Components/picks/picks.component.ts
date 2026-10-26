@@ -1,5 +1,7 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, inject, OnInit, viewChild } from '@angular/core';
 import { Aroma, aromaTest } from '../../Core/graph/aroma';
+import { PairLevel } from '../../Core/graph/graph-data';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
 import { buildGrouping, Grouping } from '../../Core/library/flavor-group';
 import { newId } from '../../Core/library/id';
@@ -19,6 +21,16 @@ const SETTINGS_KEY = 'food-pairing.picks-settings';
 const AROMA_KEY = 'food-pairing.picks-aroma';
 const PAGE_SIZE = 6;
 
+/** Сила пары словом: цветную точку расшифровывает только легенда на вкладке «Граф» */
+const LEVEL_WORDS: Record<PairLevel, string> = {
+  red: 'сильная',
+  yellow: 'хорошая',
+  green: 'умеренная',
+  blue: 'слабая',
+  pale: 'едва заметная',
+  unknown: 'нет данных'
+};
+
 interface Settings {
   jarCount: number | 'any';
   risk: Risk;
@@ -28,7 +40,7 @@ interface Settings {
 
 @Component({
   selector: 'app-picks',
-  imports: [AromaFilterComponent, FlavorGroupsComponent, MixFormComponent, NavComponent],
+  imports: [AromaFilterComponent, FlavorGroupsComponent, MixFormComponent, NavComponent, NgTemplateOutlet],
   templateUrl: './picks.component.html',
   styleUrl: './picks.component.css'
 })
@@ -41,19 +53,20 @@ export class PicksComponent implements OnInit {
   private grouping: Grouping = buildGrouping([], () => false);
 
   readonly jarCounts: (number | 'any')[] = [2, 3, 4, 5, 'any'];
+  // Подписи короткие: втроём они делят ширину экрана, а смысл раскрывает подсказка под ними
   readonly risks: { value: Risk; label: string }[] = [
-    { value: 'safe', label: 'Проверенные' },
-    { value: 'balanced', label: 'Сбалансированные' },
+    { value: 'safe', label: 'Надёжные' },
+    { value: 'balanced', label: 'Обычные' },
     { value: 'bold', label: 'Смелые' }
   ];
   readonly riskHints: Record<Risk, string> = {
-    safe: 'Все пары описаны как сильные: зелёный уровень и выше',
+    safe: 'Все пары умеренные и выше',
     balanced: 'Все пары описаны в таблицах',
     bold: 'Есть пара, которую никто не измерял'
   };
   readonly riskNames: Record<Risk, string> = {
-    safe: 'проверенные',
-    balanced: 'сбалансированные',
+    safe: 'надёжные',
+    balanced: 'обычные',
     bold: 'смелые'
   };
 
@@ -72,6 +85,7 @@ export class PicksComponent implements OnInit {
   calculating = false;
   loadError = '';
   expanded = new Set<number>();
+  moreOpen = false;
 
   async ngOnInit(): Promise<void> {
     try {
@@ -98,7 +112,19 @@ export class PicksComponent implements OnInit {
   }
 
   countLabel(count: number | 'any'): string {
-    return count === 'any' ? 'Неважно' : String(count);
+    return count === 'any' ? 'Любое' : String(count);
+  }
+
+  /** Что лежит в свёрнутой части настроек */
+  get moreSummary(): string {
+    const parts = [this.jarCount === 'any' ? 'банок: любое число' : `банок: ${this.jarCount}`];
+    if (this.groupCount) {
+      parts.push(`групп: ${this.groupCount}`);
+    }
+    if (this.hasRatings && this.usePersonal) {
+      parts.push('с моими оценками');
+    }
+    return parts.join(' · ');
   }
 
   setJarCount(count: number | 'any'): void {
@@ -182,6 +208,25 @@ export class PicksComponent implements OnInit {
 
   levelClass(level: string): string {
     return level === 'unknown' ? 'level-none' : `level-${level}`;
+  }
+
+  levelWord(level: PairLevel): string {
+    return LEVEL_WORDS[level];
+  }
+
+  /**
+   * Ступени балла совпадают со ступенями таблиц: микс из жёлтых пар набирает 77,
+   * из зелёных 60, из синих 46.
+   */
+  scoreWord(score: number): string {
+    if (score >= 75) {
+      return 'отличный';
+    }
+    if (score >= 58) {
+      return 'неплохой';
+    }
+
+    return score >= 44 ? 'так себе' : 'рискованный';
   }
 
   componentTitle(jar: Jar): string {

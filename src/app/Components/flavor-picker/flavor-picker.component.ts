@@ -14,8 +14,10 @@ export class FlavorPickerComponent {
   groups = input.required<CategoryGroup[]>();
   selected = input.required<string[]>();
   placeholder = input('Поиск вкуса');
-  /** Вкусы, занятые чужой группой: вкус к имени группы */
+  /** Вкусы, которые уже заняты: вкус к имени владельца */
   lockedBy = input<Record<string, string>>({});
+  /** Кто владелец в подсказке: «в группе», «в банке» */
+  lockLabel = input('в группе');
   toggled = output<string>();
 
   searchTerm = '';
@@ -33,7 +35,7 @@ export class FlavorPickerComponent {
   }
 
   lockHint(flavor: string): string {
-    const group = this.lockedBy()[flavor];
-    return group ? `в группе «${group}»` : '';
+    const owner = this.lockedBy()[flavor];
+    return owner ? `${this.lockLabel()} «${owner}»` : '';
   }
 }

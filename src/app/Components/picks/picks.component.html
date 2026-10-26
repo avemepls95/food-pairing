@@ -16,19 +16,9 @@
     </section>
   } @else {
     <section class="card controls">
-      <div class="field">
-        <span class="section-label">Сколько банок в миксе?</span>
-        <div class="segmented counts" role="group" aria-label="Число банок в миксе">
-          @for (count of jarCounts; track count) {
-            <button type="button" [class.active]="answered && jarCount === count"
-                    [attr.aria-pressed]="answered && jarCount === count" (click)="setJarCount(count)">
-              {{ countLabel(count) }}
-            </button>
-          }
-        </div>
-      </div>
-
-      @if (answered) {
+      @if (!answered) {
+        <ng-container *ngTemplateOutlet="jarCountField"></ng-container>
+      } @else {
         <app-aroma-filter [flavors]="shelfFlavors" [selected]="aromas" where="на полке"
                           (changed)="setAromas($event)"></app-aroma-filter>
 
@@ -43,26 +33,41 @@
           <p class="hint">{{ riskHints[risk] }}</p>
         </div>
 
-        <div class="field">
-          <button type="button" class="btn groups" (click)="openGroups()">
-            Группы вкусов
-            @if (groupCount) {
-              <span class="badge">{{ groupCount }}</span>
-            }
+        <div class="more">
+          <button type="button" class="more-toggle" [attr.aria-expanded]="moreOpen" (click)="moreOpen = !moreOpen">
+            <svg viewBox="0 0 24 24" width="15" height="15" class="chevron" [class.open]="moreOpen"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 6l6 6-6 6"/>
+            </svg>
+            {{ moreSummary }}
           </button>
-        </div>
 
-        @if (hasRatings) {
-          <label class="personal">
-            <input type="checkbox" [checked]="usePersonal" (change)="togglePersonal()">
-            <span>Учитывать мои оценки</span>
-          </label>
-        }
+          @if (moreOpen) {
+            <div class="more-body">
+              <ng-container *ngTemplateOutlet="jarCountField"></ng-container>
+
+              <button type="button" class="btn groups" (click)="openGroups()">
+                Группы вкусов
+                @if (groupCount) {
+                  <span class="badge">{{ groupCount }}</span>
+                }
+              </button>
+
+              @if (hasRatings) {
+                <label class="personal">
+                  <input type="checkbox" [checked]="usePersonal" (change)="togglePersonal()">
+                  <span>Учитывать мои оценки</span>
+                </label>
+              }
+            </div>
+          }
+        </div>
       }
     </section>
 
     @if (!answered) {
-      <p class="hint ask">Выберите число банок, и подбор соберёт миксы. «Неважно» значит, что число выберет сам подбор.</p>
+      <p class="hint ask">Выберите число банок, и подбор соберёт миксы. «Любое» значит, что число выберет сам подбор.</p>
     }
 
     @if (calculating) {
@@ -72,7 +77,7 @@
     @if (result; as result) {
       @for (shelf of result.shelves; track shelf.jarCount) {
         <section class="shelf">
-          <header class="shelf-head">
+          <h2 class="shelf-head">
             @if (jarCount === 'any') {
               <button type="button" class="shelf-toggle" [attr.aria-expanded]="isExpanded(shelf)"
                       (click)="toggleShelf(shelf)">
@@ -90,9 +95,9 @@
                 }
               </button>
             } @else {
-              <h2 class="shelf-title">{{ shelfTitle(shelf) }}</h2>
+              <span class="shelf-title">{{ shelfTitle(shelf) }}</span>
             }
-          </header>
+          </h2>
 
           @if (isExpanded(shelf)) {
             @if (shelf.relaxed && shelf.items.length) {
@@ -112,7 +117,10 @@
                     </h3>
                     <p class="reason hint">{{ reason(item) }}</p>
                   </div>
-                  <div class="score" [attr.aria-label]="'Балл ' + item.score + ' из 100'">{{ item.score }}</div>
+                  <div class="score" [attr.aria-label]="scoreWord(item.score) + ' микс, балл ' + item.score + ' из 100'">
+                    <span class="score-word">{{ scoreWord(item.score) }}</span>
+                    <span class="score-value">{{ item.score }}</span>
+                  </div>
                 </div>
 
                 <ul class="components">
@@ -131,7 +139,8 @@
                 <div class="pairs">
                   @for (pair of item.pairs; track pair.a + pair.b) {
                     <span class="pair" [class.one-sided]="pair.sides < 2" [title]="pairTitle(pair)">
-                      <span class="dot {{ levelClass(pair.level) }}"></span>{{ pair.a }} и {{ pair.b }}
+                      <span class="dot {{ levelClass(pair.level) }}"></span>{{ pair.a }} и {{ pair.b }}<span
+                        class="pair-level">{{ levelWord(pair.level) }}</span>
                     </span>
                   }
                 </div>
@@ -212,3 +221,18 @@
 
 <app-mix-form (saved)="onSaved($event)"></app-mix-form>
 <app-flavor-groups (changed)="onGroupsChanged()"></app-flavor-groups>
+
+<!-- Первый вопрос подбора, он же настройка в свёрнутой части -->
+<ng-template #jarCountField>
+  <div class="field">
+    <span class="section-label">Сколько банок в миксе?</span>
+    <div class="segmented counts" role="group" aria-label="Число банок в миксе">
+      @for (count of jarCounts; track count) {
+        <button type="button" [class.active]="answered && jarCount === count"
+                [attr.aria-pressed]="answered && jarCount === count" (click)="setJarCount(count)">
+          {{ countLabel(count) }}
+        </button>
+      }
+    </div>
+  </div>
+</ng-template>

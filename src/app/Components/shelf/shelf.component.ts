@@ -21,9 +21,10 @@ export class ShelfComponent implements OnInit {
   private pressedOnBackdrop = false;
 
   jars: Jar[] = [];
+  /** Вкусы банок, заполненных руками: галочкой такую банку не снять */
+  locked: Record<string, string> = {};
   draft: Jar | undefined;
   isNewJar = false;
-  status = '';
   loadError = '';
 
   async ngOnInit(): Promise<void> {
@@ -33,7 +34,7 @@ export class ShelfComponent implements OnInit {
       this.loadError = 'Не удалось загрузить справочник вкусов';
     }
     this.store.load(text => this.data.canonical(text));
-    this.jars = this.store.jars();
+    this.reloadJars();
   }
 
   groups(): CategoryGroup[] {
@@ -58,27 +59,17 @@ export class ShelfComponent implements OnInit {
   }
 
   /**
-   * Галочка заводит банку на один вкус. Снятие убирает только нетронутую банку:
-   * бренд, название и второй вкус означают, что её заполняли руками.
+   * Галочка заводит банку на один вкус и снимает эту же банку. Бренд, название и второй
+   * вкус означают, что банку заполняли руками, поэтому её вкусы в списке заблокированы.
    */
   toggleFlavor(flavor: string): void {
-    const owners = this.jars.filter(jar => jar.flavors.includes(flavor));
-    if (!owners.length) {
-      this.store.saveJar({ id: newId(), flavors: [flavor] });
-      this.jars = this.store.jars();
-      this.status = '';
-      return;
-    }
-
-    const plain = owners.find(jar => jar.flavors.length === 1 && !jar.brand && !jar.name);
+    const plain = this.jars.find(jar => this.isPlain(jar) && jar.flavors.includes(flavor));
     if (plain) {
       this.store.removeJar(plain.id);
-      this.jars = this.store.jars();
-      this.status = '';
-      return;
+    } else {
+      this.store.saveJar({ id: newId(), flavors: [flavor] });
     }
-
-    this.status = `Вкус «${flavor}» стоит в банке «${this.title(owners[0])}». Уберите его в карточке банки`;
+    this.reloadJars();
   }
 
   addJar(): void {
@@ -92,8 +83,7 @@ export class ShelfComponent implements OnInit {
   removeJar(jar: Jar): void {
     if (confirm(`Убрать с полки «${this.title(jar)}»?`)) {
       this.store.removeJar(jar.id);
-      this.jars = this.store.jars();
-      this.status = '';
+      this.reloadJars();
     }
   }
 
@@ -131,9 +121,22 @@ export class ShelfComponent implements OnInit {
       brand: this.draft.brand?.trim() || undefined,
       name: this.draft.name?.trim() || undefined
     });
-    this.jars = this.store.jars();
-    this.status = '';
+    this.reloadJars();
     this.closeDialog();
+  }
+
+  private isPlain(jar: Jar): boolean {
+    return jar.flavors.length === 1 && !jar.brand && !jar.name;
+  }
+
+  private reloadJars(): void {
+    this.jars = this.store.jars();
+    this.locked = {};
+    for (const jar of this.jars.filter(jar => !this.isPlain(jar))) {
+      for (const flavor of jar.flavors) {
+        this.locked[flavor] = this.title(jar);
+      }
+    }
   }
 
   private openDialog(draft: Jar, isNewJar: boolean): void {

@@ -4,8 +4,8 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    title: 'Сочетания вкусов',
-    loadComponent: () => import('./Components/graph/graph.component').then(m => m.GraphComponent)
+    title: 'Подбор миксов - сочетания вкусов',
+    loadComponent: () => import('./Components/picks/picks.component').then(m => m.PicksComponent)
   },
   {
     path: 'shelf',
@@ -13,14 +13,16 @@ export const routes: Routes = [
     loadComponent: () => import('./Components/shelf/shelf.component').then(m => m.ShelfComponent)
   },
   {
-    path: 'picks',
-    title: 'Подбор миксов - сочетания вкусов',
-    loadComponent: () => import('./Components/picks/picks.component').then(m => m.PicksComponent)
-  },
-  {
     path: 'mixes',
     title: 'Миксы - сочетания вкусов',
     loadComponent: () => import('./Components/mixes/mixes.component').then(m => m.MixesComponent)
   },
+  {
+    path: 'graph',
+    title: 'Граф - сочетания вкусов',
+    loadComponent: () => import('./Components/graph/graph.component').then(m => m.GraphComponent)
+  },
+  // Подбор переехал на корень, по старому адресу приходят сохранённые вкладки
+  { path: 'picks', redirectTo: '', pathMatch: 'full' },
   { path: '**', redirectTo: '' }
 ];

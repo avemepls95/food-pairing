@@ -187,6 +187,12 @@ export class GraphComponent implements OnInit, OnDestroy {
       : 'В точном режиме нужно выбрать хотя бы два продукта';
   }
 
+  private graphLabel(nodes: number, links: number): string {
+    const selected = this.selectedProducts.length ? `Выбрано: ${this.selectedProducts.join(', ')}. ` : '';
+
+    return `${selected}Продуктов на графе: ${nodes}, связей: ${links}`;
+  }
+
   showAllLevels(): void {
     this.filter = { red: true, yellow: true, green: true, blue: true };
     this.saveSettings();
@@ -303,11 +309,14 @@ export class GraphComponent implements OnInit, OnDestroy {
       .attr('width', '100%')
       .attr('height', '100%')
       .attr('viewBox', `0 0 ${width} ${height}`)
-      .style('display', 'block');
+      .style('display', 'block')
+      .attr('role', 'img');
 
     const container = this.svg.append('g').classed('container', true);
 
     const visibleNodes = this.graph.nodes.filter(node => !node.hidden);
+    // Рисунок связей скринридеру не прочитать, поэтому он получает их счёт словами
+    this.svg.attr('aria-label', this.graphLabel(visibleNodes.length, this.filteredLinks.length));
     const nodeById = new Map(visibleNodes.map(node => [node.id, node]));
     const simLinks: SimLink[] = this.filteredLinks.map(link => ({
       source: nodeById.get(link.source)!,

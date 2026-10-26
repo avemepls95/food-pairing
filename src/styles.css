@@ -3,7 +3,7 @@
   --surface: #ffffff;
   --surface-hover: #eef0f3;
   --border: #e2e5ea;
-  --border-strong: #c5cad3;
+  --border-strong: #8e95a3;
   --text: #1c1f24;
   --muted: #5d6470;
   --radius: 14px;
@@ -12,8 +12,8 @@
   --shadow-lifted: 0 2px 4px rgb(16 24 40 / 8%), 0 8px 18px rgb(16 24 40 / 6%);
   /* Звёзды и рамки полей темнее остальных границ: по ним читается оценка и границы элементов управления */
   --star-on: #c67c00;
-  --star-off: #8a919c;
-  --field-border: #8a919c;
+  --star-off: #828996;
+  --field-border: #828996;
   --primary-hover: #000;
   --level-red: #e03131;
   --level-yellow: #f0a800;
@@ -28,7 +28,7 @@
     --surface: #1c1f25;
     --surface-hover: #262a32;
     --border: #2d323b;
-    --border-strong: #4a515d;
+    --border-strong: #6b7380;
     --text: #e9ebef;
     --muted: #9aa2b1;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 28%);
@@ -119,10 +119,6 @@ body:has(dialog[open]) {
   padding: 2px 2px 0 6px;
 }
 
-app-nav {
-  margin-right: auto;
-}
-
 .section-label {
   font-size: 0.85rem;
   font-weight: 600;
@@ -136,7 +132,7 @@ app-nav {
 }
 
 .btn {
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -183,9 +179,28 @@ app-nav {
   color: var(--muted);
 }
 
+/* Действие страницы в верхней строке: на узком экране от него остаётся значок */
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 599px) {
+  .action {
+    width: 44px;
+    padding: 0;
+  }
+
+  .action-label {
+    display: none;
+  }
+}
+
 .input {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--field-border);
   border-radius: var(--radius-sm);
@@ -207,7 +222,9 @@ app-nav {
 .segmented {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  /* Дорожка auto даёт длинной подписи распереть контейнер за край экрана */
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
   padding: 3px;
   background: var(--bg);
   border-radius: var(--radius-sm);
@@ -216,7 +233,7 @@ app-nav {
 .segmented button, .segmented a {
   display: grid;
   place-items: center;
-  min-height: 36px;
+  min-height: 44px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -327,8 +344,8 @@ html {
 .icon-btn {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 10px;
   background: transparent;

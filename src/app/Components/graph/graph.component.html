@@ -1,8 +1,9 @@
 <div class="page" [class.filters-hidden]="!filtersOpen" [class.fullscreen]="fullscreen">
   <header class="topbar">
-    <h1 class="visually-hidden">Сочетания вкусов</h1>
+    <h1 class="visually-hidden">Граф сочетаемости</h1>
     <app-nav></app-nav>
     <button type="button" class="filters-toggle" aria-controls="filters"
+            [attr.aria-label]="filtersOpen ? 'Скрыть фильтры' : 'Показать фильтры'"
             [attr.aria-expanded]="filtersOpen" (click)="filtersOpen = !filtersOpen">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"
            stroke-linecap="round" aria-hidden="true">
@@ -10,7 +11,7 @@
         <circle cx="16" cy="7" r="2"/>
         <circle cx="10" cy="17" r="2"/>
       </svg>
-      {{ filtersOpen ? 'Скрыть фильтры' : 'Фильтры' }}
+      <span class="action-label">{{ filtersOpen ? 'Скрыть фильтры' : 'Фильтры' }}</span>
       @if (selectedProducts.length) {
         <span class="badge">{{ selectedProducts.length }}</span>
       }

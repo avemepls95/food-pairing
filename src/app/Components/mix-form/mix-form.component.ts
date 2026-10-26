@@ -2,7 +2,7 @@ import { afterNextRender, Component, ElementRef, HostListener, inject, Injector,
 import { FormsModule } from '@angular/forms';
 import { CategoryGroup } from '../../Core/graph/graph-data';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
-import { isMixValid, Mix, MixCategory, MIX_MIN_ITEMS } from '../../Core/library/mix';
+import { isMixValid, Mix, MixCategory, MIX_MIN_ITEMS, shareProblem, shareTotal } from '../../Core/library/mix';
 import { FlavorPickerComponent } from '../flavor-picker/flavor-picker.component';
 
 @Component({
@@ -119,7 +119,23 @@ export class MixFormComponent {
       const left = this.minItems - filled;
       return `Нужно ещё ${left} ${left > 1 ? 'позиции со вкусом' : 'позиция со вкусом'}`;
     }
-    return 'Поставьте оценку';
+
+    return shareProblem(this.draft) || 'Поставьте оценку';
+  }
+
+  get shareOver(): boolean {
+    return !!this.draft && shareTotal(this.draft) > 100;
+  }
+
+  /** Подпись к составу: сколько чаши уже расписано долями */
+  get shareLabel(): string {
+    const total = this.draft ? shareTotal(this.draft) : 0;
+    if (!total) {
+      return '';
+    }
+    const left = 100 - total;
+
+    return left > 0 ? `${total} %, осталось ${left} %` : `${total} %`;
   }
 
   save(): void {

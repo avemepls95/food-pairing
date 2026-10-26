@@ -41,7 +41,12 @@
       }
 
       <div class="field">
-        <span class="section-label">Состав</span>
+        <div class="field-head">
+          <span class="section-label">Состав</span>
+          @if (shareLabel) {
+            <span class="hint" [class.over]="shareOver">{{ shareLabel }}</span>
+          }
+        </div>
         @for (item of draft.items; track $index) {
           <div class="item-row" [class.picking]="pickerIndex === $index">
             <div class="item-head">

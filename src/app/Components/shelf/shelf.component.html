@@ -2,7 +2,13 @@
   <header class="topbar">
     <h1 class="visually-hidden">Полка</h1>
     <app-nav></app-nav>
-    <button type="button" class="btn btn-primary" (click)="addJar()">Добавить банку</button>
+    <button type="button" class="btn btn-primary action" aria-label="Добавить банку" (click)="addJar()">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      <span class="action-label">Добавить банку</span>
+    </button>
   </header>
 
   @if (loadError) {
@@ -15,11 +21,8 @@
         <span class="section-label">Мои вкусы</span>
         <span class="hint">банок {{ jars.length }}, вкусов {{ flavorCount }}</span>
       </div>
-      <app-flavor-picker [groups]="groups()" [selected]="shelfFlavors"
-                         (toggled)="toggleFlavor($event)"></app-flavor-picker>
-      @if (status) {
-        <p class="hint status" role="status">{{ status }}</p>
-      }
+      <app-flavor-picker [groups]="groups()" [selected]="shelfFlavors" [lockedBy]="locked"
+                         lockLabel="в банке" (toggled)="toggleFlavor($event)"></app-flavor-picker>
     </section>
 
     <section class="list">
