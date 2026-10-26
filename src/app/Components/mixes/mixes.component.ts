@@ -139,7 +139,8 @@ export class MixesComponent implements OnInit {
       const { jars, mixes, rejected, groups, skipped, mixesOnly, withGroups } =
         this.store.parseBackup(await file.text());
       const skippedNote = skipped
-        ? `\nПропущено записей: ${skipped}. В них меньше двух позиций, нет оценки или нет вкусов.`
+        ? `\nПропущено записей: ${skipped}. В них меньше двух позиций, нет оценки, нет вкусов`
+          + ' или занято имя группы.'
         : '';
       const what = mixesOnly
         ? `миксы из файла (${mixes.length}), полка останется на месте`

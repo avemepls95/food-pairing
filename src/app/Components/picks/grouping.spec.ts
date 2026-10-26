@@ -12,7 +12,8 @@ const CATEGORIES: Record<string, string> = {
   'желтая груша': 'Фрукты',
   'зеленая груша': 'Фрукты',
   'сыр': 'Гастро',
-  'горгонзола': 'Гастро'
+  'горгонзола': 'Гастро',
+  'мята': 'Травы'
 };
 
 const PEAR: FlavorGroup = { id: 'g1', name: 'груша', flavors: ['груша', 'желтая груша', 'зеленая груша'] };
@@ -188,6 +189,15 @@ describe('подбор с группами', () => {
 
     expect(shelfResult.items).toEqual([]);
     expect(shelfResult.skippedRejected).toBe(1);
+  });
+
+  it('оценка микса с зелёной грушей => переходит на группу', () => {
+    const shelf = [jar('j1', 'груша'), jar('j2', 'сыр')];
+    const ctx = groupContext(context({ jars: shelf, mixes: [tried('зеленая груша', 'мята')] }), grouping());
+
+    const result = recommend({ jarCount: 2, risk: 'balanced', usePersonal: true }, ctx);
+
+    expect(result.shelves[0].items[0].personal).toBeGreaterThan(0);
   });
 
   it('скрытый набор записан при группе => скрывает тот же микс после её удаления', () => {

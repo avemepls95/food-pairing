@@ -68,6 +68,15 @@ export class FlavorGroupsComponent {
     return this.data.grouped();
   }
 
+  isKnown(flavor: string): boolean {
+    return !!this.data.node(flavor);
+  }
+
+  /** Группа, где известных вкусов меньше двух, в подборе не строится */
+  isActive(group: FlavorGroup): boolean {
+    return group.flavors.filter(flavor => this.isKnown(flavor)).length >= MIN_FLAVORS;
+  }
+
   isChecked(name: string): boolean {
     return this.checked.has(name);
   }

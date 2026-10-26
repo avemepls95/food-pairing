@@ -333,6 +333,19 @@ describe('parseBackup', () => {
     expect(parsed.groups).toHaveLength(1);
   });
 
+  it('groups не массив => групп нет, остальное читается', () => {
+    const parsed = parseBackup(file({
+      version: 3,
+      jars: [{ id: 'j1', flavors: ['мята'] }],
+      mixes: [{ ...legacyMix([]), items: [{ flavors: ['мята'] }, { flavors: ['кислая вишня'] }] }],
+      groups: 'нет'
+    }), canonical);
+
+    expect(parsed.groups).toEqual([]);
+    expect(parsed.jars).toHaveLength(1);
+    expect(parsed.mixes).toHaveLength(1);
+  });
+
   it('негодная группа => попадает в skipped', () => {
     const parsed = parseBackup(file({
       version: 3,

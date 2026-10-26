@@ -74,7 +74,11 @@
             <span class="row-name">{{ group.name }}</span>
             <span class="flavor-chips">
               @for (flavor of group.flavors; track flavor) {
-                <span class="flavor-chip plain">{{ flavor }}</span>
+                <span class="flavor-chip plain" [class.unknown]="!isKnown(flavor)"
+                      [title]="isKnown(flavor) ? '' : 'Нет в справочнике'">{{ flavor }}</span>
+              }
+              @if (!isActive(group)) {
+                <span class="hint">в подборе не участвует</span>
               }
             </span>
             <button type="button" class="icon-btn" [attr.aria-label]="'Изменить группу ' + group.name"
