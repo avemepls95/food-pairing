@@ -59,6 +59,12 @@
   accent-color: var(--text);
 }
 
+/* Вкус, который уже лежит в другой группе */
+.product-item.locked {
+  color: var(--muted);
+  cursor: default;
+}
+
 .empty {
   padding: 12px 4px;
 }

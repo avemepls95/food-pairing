@@ -261,3 +261,9 @@
   align-self: center;
   min-width: 180px;
 }
+
+.groups {
+  align-self: start;
+  gap: 8px;
+  min-height: 38px;
+}

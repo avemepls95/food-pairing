@@ -51,7 +51,7 @@ export interface Graph {
 }
 
 /** Вкусы одной категории для списков выбора */
-export interface FlavorGroup {
+export interface CategoryGroup {
   category: string;
   items: string[];
 }
@@ -158,7 +158,7 @@ export function buildGraph(tables: PairingTable[], products: Product[]): Graph {
 }
 
 /** Вкусы по категориям для списков выбора: категории и вкусы по алфавиту */
-export function groupFlavors(nodes: GraphNode[]): FlavorGroup[] {
+export function groupFlavors(nodes: GraphNode[]): CategoryGroup[] {
   const categories = new Map<string, string[]>();
 
   nodes.forEach(node => {

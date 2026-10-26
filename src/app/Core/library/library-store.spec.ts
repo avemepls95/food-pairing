@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { toKey } from '../graph/graph-data';
 import { isMixValid, Mix } from './mix';
-import { migrateJar, parseBackup, readLibrary } from './library-data';
+import { migrateGroups, migrateJar, parseBackup, readLibrary } from './library-data';
 
 const dictionary: Record<string, string> = {
   [toKey('Кис. вишня')]: 'кислая вишня',
-  [toKey('Мята')]: 'мята'
+  [toKey('кислая вишня')]: 'кислая вишня',
+  [toKey('Мята')]: 'мята',
+  [toKey('груша')]: 'груша',
+  [toKey('Ж. груша')]: 'желтая груша',
+  [toKey('желтая груша')]: 'желтая груша',
+  [toKey('зеленая груша')]: 'зеленая груша',
+  [toKey('сыр')]: 'сыр'
 };
 const canonical = (text: string) => dictionary[toKey(text)];
 
@@ -88,7 +94,7 @@ describe('readLibrary', () => {
 
     const library = readLibrary(storage, canonical);
 
-    expect(library).toEqual({ jars: [], mixes: [], rejected: [] });
+    expect(library).toEqual({ jars: [], mixes: [], rejected: [], groups: [] });
   });
 
   it('новый ключ => читается он, а не старый', () => {
@@ -176,6 +182,71 @@ describe('isMixValid', () => {
   });
 });
 
+describe('migrateGroups', () => {
+  const group = (patch: Record<string, unknown>) => ({ id: 'g1', name: 'груша', ...patch });
+
+  it('группа с вкусом из двух написаний => вкусы канонические и без повторов', () => {
+    const groups = migrateGroups([group({ flavors: ['Ж. груша', 'желтая груша', 'груша'] })], canonical);
+
+    expect(groups).toEqual([{ id: 'g1', name: 'груша', flavors: ['желтая груша', 'груша'] }]);
+  });
+
+  it('группа без имени => пропускается', () => {
+    const groups = migrateGroups([group({ name: '  ', flavors: ['груша', 'желтая груша'] })], canonical);
+
+    expect(groups).toEqual([]);
+  });
+
+  it('группа из одного вкуса => пропускается', () => {
+    const groups = migrateGroups([group({ flavors: ['груша'] })], canonical);
+
+    expect(groups).toEqual([]);
+  });
+
+  it('groups не массив => групп нет', () => {
+    const groups = migrateGroups('нет', canonical);
+
+    expect(groups).toEqual([]);
+  });
+
+  it('вкусы группы не строки => запись пропускается', () => {
+    const groups = migrateGroups([group({ flavors: [42, null] })], canonical);
+
+    expect(groups).toEqual([]);
+  });
+
+  it('вкус встретился в двух группах файла => остаётся в первой', () => {
+    const groups = migrateGroups([
+      group({ flavors: ['груша', 'желтая груша', 'зеленая груша'] }),
+      group({ id: 'g2', name: 'вторая', flavors: ['желтая груша', 'сыр'] })
+    ], canonical);
+
+    expect(groups).toEqual([{ id: 'g1', name: 'груша', flavors: ['груша', 'желтая груша', 'зеленая груша'] }]);
+  });
+
+  it('имя второй группы совпадает с именем первой => вторая пропускается', () => {
+    const groups = migrateGroups([
+      group({ flavors: ['груша', 'желтая груша'] }),
+      group({ id: 'g2', name: 'Груша', flavors: ['зеленая груша', 'сыр'] })
+    ], canonical);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].id).toBe('g1');
+  });
+
+  it('имя группы это свободный вкус справочника => группа пропускается', () => {
+    const groups = migrateGroups([group({ name: 'сыр', flavors: ['груша', 'желтая груша'] })], canonical);
+
+    expect(groups).toEqual([]);
+  });
+
+  it('имя группы отличается регистром от свободного вкуса => группа пропускается', () => {
+    const groups = migrateGroups([group({ name: 'Сыр', flavors: ['груша', 'желтая груша'] })], canonical);
+
+    expect(groups).toEqual([]);
+  });
+});
+
 describe('parseBackup', () => {
   const file = (body: unknown) => JSON.stringify(body);
 
@@ -235,6 +306,43 @@ describe('parseBackup', () => {
 
     expect(parsed.mixes[0].items[0].share).toBeUndefined();
     expect(parsed.mixes[0].items[1].share).toBe(30);
+  });
+
+  it('файл версии 2 => withGroups false и группы не читаются', () => {
+    const parsed = parseBackup(file({
+      version: 2,
+      jars: [{ id: 'j1', flavors: ['мята'] }],
+      mixes: [],
+      groups: [{ id: 'g1', name: 'груша', flavors: ['груша', 'желтая груша'] }]
+    }), canonical);
+
+    expect(parsed.withGroups).toBe(false);
+    expect(parsed.mixesOnly).toBe(false);
+    expect(parsed.groups).toEqual([]);
+  });
+
+  it('файл версии 3 => withGroups true и группы читаются', () => {
+    const parsed = parseBackup(file({
+      version: 3,
+      jars: [{ id: 'j1', flavors: ['мята'] }],
+      mixes: [],
+      groups: [{ id: 'g1', name: 'груша', flavors: ['груша', 'желтая груша'] }]
+    }), canonical);
+
+    expect(parsed.withGroups).toBe(true);
+    expect(parsed.groups).toHaveLength(1);
+  });
+
+  it('негодная группа => попадает в skipped', () => {
+    const parsed = parseBackup(file({
+      version: 3,
+      jars: [{ id: 'j1', flavors: ['мята'] }],
+      mixes: [],
+      groups: [{ id: 'g1', name: 'груша', flavors: ['груша'] }]
+    }), canonical);
+
+    expect(parsed.groups).toEqual([]);
+    expect(parsed.skipped).toBe(1);
   });
 
   it('файл не разбирается => исключение с текстом про копию', () => {

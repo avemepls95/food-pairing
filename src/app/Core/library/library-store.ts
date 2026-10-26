@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { FlavorGroup } from './flavor-group';
 import { Jar } from './jar';
 import { Backup, Canonical, Library, ParsedBackup, parseBackup, readLibrary, STORAGE_KEY, STORAGE_VERSION } from './library-data';
 import { Mix } from './mix';
@@ -8,7 +9,7 @@ import { Mix } from './mix';
  */
 @Injectable({ providedIn: 'root' })
 export class LibraryStore {
-  private library: Library = { jars: [], mixes: [], rejected: [] };
+  private library: Library = { jars: [], mixes: [], rejected: [], groups: [] };
   private loaded = false;
   private canonical: Canonical = () => undefined;
 
@@ -36,6 +37,23 @@ export class LibraryStore {
 
   rejected(): string[] {
     return this.library.rejected;
+  }
+
+  groups(): FlavorGroup[] {
+    return this.library.groups;
+  }
+
+  saveGroup(group: FlavorGroup): void {
+    const index = this.library.groups.findIndex(g => g.id === group.id);
+    this.library.groups = index < 0
+      ? [...this.library.groups, group]
+      : this.library.groups.map(g => (g.id === group.id ? group : g));
+    this.write();
+  }
+
+  removeGroup(id: string): void {
+    this.library.groups = this.library.groups.filter(group => group.id !== id);
+    this.write();
   }
 
   /** Набор вкусов, который больше не предлагаем */

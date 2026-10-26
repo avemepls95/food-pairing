@@ -11,8 +11,9 @@
       </h2>
       <div class="product-items">
         @for (item of group.items; track item) {
-          <label class="product-item">
-            <input type="checkbox" [checked]="isSelected(item)" (change)="toggled.emit(item)">
+          <label class="product-item" [class.locked]="!!lockHint(item)" [title]="lockHint(item)">
+            <input type="checkbox" [checked]="isSelected(item)" [disabled]="!!lockHint(item)"
+                   (change)="toggled.emit(item)">
             <span>{{ item }}</span>
           </label>
         }

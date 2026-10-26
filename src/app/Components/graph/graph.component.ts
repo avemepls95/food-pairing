@@ -2,7 +2,7 @@ import { Component, ElementRef, HostListener, inject, NgZone, OnDestroy, OnInit,
 import * as d3 from 'd3';
 import { NavComponent } from '../nav/nav.component';
 import { categoryColor } from '../../Core/graph/categories';
-import { FlavorGroup, GraphLink, GraphNode, Level } from '../../Core/graph/graph-data';
+import { CategoryGroup, GraphLink, GraphNode, Level } from '../../Core/graph/graph-data';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
 import { FlavorPickerComponent } from '../flavor-picker/flavor-picker.component';
 
@@ -57,7 +57,7 @@ export class GraphComponent implements OnInit, OnDestroy {
   graph: { nodes: Node[]; links: GraphLink[] } = { nodes: [], links: [] };
   filteredLinks: GraphLink[] = [];
   selectedProducts: string[] = [];
-  groupedProducts: FlavorGroup[] = [];
+  groupedProducts: CategoryGroup[] = [];
 
   filter: Record<VisibleLevel, boolean> = {
     red: true,

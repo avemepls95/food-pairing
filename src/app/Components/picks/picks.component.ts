@@ -1,16 +1,19 @@
 import { Component, inject, OnInit, viewChild } from '@angular/core';
 import { Aroma, aromaTest } from '../../Core/graph/aroma';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
+import { buildGrouping, Grouping } from '../../Core/library/flavor-group';
 import { newId } from '../../Core/library/id';
 import { Jar } from '../../Core/library/jar';
 import { LibraryStore } from '../../Core/library/library-store';
 import { Mix, MixCategory, MixItem } from '../../Core/library/mix';
 import { AromaFilterComponent } from '../aroma-filter/aroma-filter.component';
 import { readAromas, writeAromas } from '../aroma-filter/aroma-storage';
+import { FlavorGroupsComponent } from '../flavor-groups/flavor-groups.component';
 import { MixFormComponent } from '../mix-form/mix-form.component';
 import { NavComponent } from '../nav/nav.component';
-import { PickShelf, PicksResult, Recommendation, Risk } from './recommendation';
-import { flavorKey, recommend } from './recommender';
+import { groupContext, groupTest, shelfFlavorKey, withShelfJars } from './grouping';
+import { PickShelf, PicksResult, Recommendation, Risk, ScoredPair } from './recommendation';
+import { recommend } from './recommender';
 
 const SETTINGS_KEY = 'food-pairing.picks-settings';
 const AROMA_KEY = 'food-pairing.picks-aroma';
@@ -25,7 +28,7 @@ interface Settings {
 
 @Component({
   selector: 'app-picks',
-  imports: [AromaFilterComponent, MixFormComponent, NavComponent],
+  imports: [AromaFilterComponent, FlavorGroupsComponent, MixFormComponent, NavComponent],
   templateUrl: './picks.component.html',
   styleUrl: './picks.component.css'
 })
@@ -33,6 +36,9 @@ export class PicksComponent implements OnInit {
   private store = inject(LibraryStore);
   private data = inject(GraphDataService);
   private form = viewChild.required(MixFormComponent);
+  private groupsForm = viewChild.required(FlavorGroupsComponent);
+  private knows = (flavor: string) => !!this.data.node(flavor);
+  private grouping: Grouping = buildGrouping([], () => false);
 
   readonly jarCounts: (number | 'any')[] = [2, 3, 4, 5, 'any'];
   readonly risks: { value: Risk; label: string }[] = [
@@ -54,6 +60,7 @@ export class PicksComponent implements OnInit {
   jars: Jar[] = [];
   /** Вкусы полки, которые знает справочник: только они попадают в подбор */
   shelfFlavors: string[] = [];
+  groupCount = 0;
   aromas: Aroma[] = [];
   answered = false;
   jarCount: number | 'any' = 'any';
@@ -79,6 +86,7 @@ export class PicksComponent implements OnInit {
       .filter(flavor => !!this.data.node(flavor));
     this.aromas = readAromas(AROMA_KEY);
     this.hasRatings = this.store.mixes().some(mix => mix.category === 'tried' && !!mix.rating);
+    this.reloadGroups();
     this.restoreSettings();
     if (this.answered) {
       this.calculate();
@@ -184,9 +192,30 @@ export class PicksComponent implements OnInit {
     this.saveMix(item, 'planned');
   }
 
-  /** Больше не предлагать этот набор вкусов */
+  openGroups(): void {
+    this.groupsForm().open();
+  }
+
+  onGroupsChanged(): void {
+    this.reloadGroups();
+    this.calculate(true);
+  }
+
+  /** Состав групп пары и пометка про одну сторону */
+  pairTitle(pair: ScoredPair): string {
+    const parts = [pair.a, pair.b]
+      .filter(name => this.grouping.isGroup(name))
+      .map(name => `${name}: ${this.grouping.flavorsOf(name).join(', ')}`);
+    if (pair.sides < 2) {
+      parts.push('Пару описала только одна из двух таблиц');
+    }
+
+    return parts.join('\n');
+  }
+
+  /** Больше не предлагать этот набор вкусов. Запрет записан вкусами банок, без групп */
   reject(item: Recommendation): void {
-    this.store.reject(flavorKey(item.flavors));
+    this.store.reject(shelfFlavorKey(item.jarIds, this.jars, this.knows));
     this.calculate(true);
   }
 
@@ -241,28 +270,36 @@ export class PicksComponent implements OnInit {
     }
     this.calculating = true;
     setTimeout(() => {
+      const grouping = this.grouping;
       const result = recommend({
         jarCount: this.jarCount,
         risk: this.risk,
         usePersonal: this.usePersonal && this.hasRatings,
         limit: this.limit,
-        aromas: this.aromas.map(aroma => aromaTest(aroma, flavor => this.data.categoryOf(flavor)))
-      }, {
+        aromas: this.aromas
+          .map(aroma => groupTest(aromaTest(aroma, flavor => this.data.categoryOf(flavor)), grouping))
+      }, groupContext({
         jars: this.jars,
         mixes: this.store.mixes(),
         rejected: this.store.rejected(),
         level: (a, b) => this.data.level(a, b),
         sides: (a, b) => this.data.sides(a, b),
         categoryOf: flavor => this.data.categoryOf(flavor),
-        knows: flavor => !!this.data.node(flavor),
+        knows: this.knows,
         hasTable: flavor => this.data.hasTable(flavor)
-      });
-      this.result = result;
+      }, grouping));
+      this.result = withShelfJars(result, this.jars);
       if (!keepExpanded) {
         this.expanded = new Set(result.chosen ? [result.chosen] : []);
       }
       this.calculating = false;
     });
+  }
+
+  private reloadGroups(): void {
+    const groups = this.store.groups();
+    this.groupCount = groups.length;
+    this.grouping = buildGrouping(groups, this.knows);
   }
 
   private restoreSettings(): void {

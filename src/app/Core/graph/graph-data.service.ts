@@ -3,7 +3,7 @@ import {
   agreedOf,
   buildGraph,
   buildPairIndex,
-  FlavorGroup,
+  CategoryGroup,
   Graph,
   GraphLink,
   GraphNode,
@@ -27,7 +27,7 @@ export class GraphDataService {
   private pairs = new Map<string, GraphLink>();
   private nodeById = new Map<string, GraphNode>();
   private canonicalByKey = new Map<string, string>();
-  private groups: FlavorGroup[] = [];
+  private groups: CategoryGroup[] = [];
 
   load(): Promise<Graph> {
     // Неудачу не запоминаем: со страницы графа загрузку можно повторить
@@ -65,7 +65,7 @@ export class GraphDataService {
     return this.canonicalByKey.get(toKey(text));
   }
 
-  grouped(): FlavorGroup[] {
+  grouped(): CategoryGroup[] {
     return this.groups;
   }
 

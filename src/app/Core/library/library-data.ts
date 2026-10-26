@@ -1,3 +1,4 @@
+import { FlavorGroup, nameConflict } from './flavor-group';
 import { newId } from './id';
 import { Jar } from './jar';
 import { isMixValid, Mix, MixCategory, MixItem } from './mix';
@@ -7,6 +8,7 @@ export interface Backup {
   jars?: unknown;
   mixes?: unknown;
   rejected?: unknown;
+  groups?: unknown;
 }
 
 export interface Library {
@@ -14,6 +16,8 @@ export interface Library {
   mixes: Mix[];
   /** Наборы вкусов, которые пользователь больше не хочет видеть в подборе */
   rejected: string[];
+  /** Вкусы, которые подбор считает одним вкусом */
+  groups: FlavorGroup[];
 }
 
 export interface ParsedBackup extends Library {
@@ -21,6 +25,8 @@ export interface ParsedBackup extends Library {
   skipped: number;
   /** Файл старого формата: в нём только миксы, полку он не описывает */
   mixesOnly: boolean;
+  /** Файл описывает группы: файл версии 2 их не знает и заменять не должен */
+  withGroups: boolean;
 }
 
 /** Приводит написание из таблиц к каноническому имени справочника */
@@ -28,7 +34,9 @@ export type Canonical = (text: string) => string | undefined;
 
 export const STORAGE_KEY = 'food-pairing.library';
 const LEGACY_MIXES_KEY = 'food-pairing.mixes';
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
+/** Версия, в которой у библиотеки появились группы */
+const GROUPS_VERSION = 3;
 
 const asText = (value: unknown): string | undefined => {
   const text = typeof value === 'string' ? value.trim() : '';
@@ -101,14 +109,46 @@ export function migrateJar(raw: unknown, usedIds: Set<string>): Jar | undefined 
   };
 }
 
+/**
+ * Разбирает список групп целиком: занятые вкусы и занятые имена видны только на всём списке.
+ */
+export function migrateGroups(raw: unknown, canonical: Canonical): FlavorGroup[] {
+  const usedIds = new Set<string>();
+  const taken = new Set<string>();
+  const groups: FlavorGroup[] = [];
+
+  (Array.isArray(raw) ? raw : []).forEach(entry => {
+    const source = (entry ?? {}) as Record<string, unknown>;
+    const name = asText(source['name']);
+    const list = Array.isArray(source['flavors']) ? source['flavors'] : [];
+    const flavors = Array.from(new Set(list
+      .map(value => asText(value))
+      .filter((text): text is string => !!text)
+      .map(text => canonical(text) ?? text)))
+      .filter(flavor => !taken.has(flavor));
+
+    if (!name || flavors.length < 2 || nameConflict(name, flavors, groups, canonical)) {
+      return;
+    }
+    flavors.forEach(flavor => taken.add(flavor));
+    groups.push({ id: takeId(source['id'], usedIds), name, flavors });
+  });
+
+  return groups;
+}
+
 function migrateLibrary(backup: Backup, canonical: Canonical): ParsedBackup {
   const jarIds = new Set<string>();
   const mixIds = new Set<string>();
   const rawJars = Array.isArray(backup.jars) ? backup.jars : [];
   const rawMixes = Array.isArray(backup.mixes) ? backup.mixes : [];
+  // Файл версии 2 про группы ничего не знает, и его пустой список не должен их стирать
+  const withGroups = backup.version >= GROUPS_VERSION;
+  const rawGroups = withGroups && Array.isArray(backup.groups) ? backup.groups : [];
 
   const jars = rawJars.map(jar => migrateJar(jar, jarIds)).filter((jar): jar is Jar => !!jar);
   const mixes = rawMixes.map(mix => migrateMix(mix, mixIds, canonical)).filter(isMixValid);
+  const groups = withGroups ? migrateGroups(backup.groups, canonical) : [];
   const rejected = Array.isArray(backup.rejected)
     ? Array.from(new Set(backup.rejected.map(key => asText(key)).filter((key): key is string => !!key)))
     : [];
@@ -117,8 +157,10 @@ function migrateLibrary(backup: Backup, canonical: Canonical): ParsedBackup {
     jars,
     mixes,
     rejected,
-    skipped: rawJars.length - jars.length + (rawMixes.length - mixes.length),
-    mixesOnly: backup.version < STORAGE_VERSION
+    groups,
+    skipped: rawJars.length - jars.length + (rawMixes.length - mixes.length) + (rawGroups.length - groups.length),
+    mixesOnly: backup.version < 2,
+    withGroups
   };
 }
 
@@ -152,11 +194,11 @@ export function readLibrary(storage: Pick<Storage, 'getItem'>, canonical: Canoni
   try {
     const stored = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_MIXES_KEY);
     if (!stored) {
-      return { jars: [], mixes: [], rejected: [] };
+      return { jars: [], mixes: [], rejected: [], groups: [] };
     }
-    const { jars, mixes, rejected } = migrateLibrary(JSON.parse(stored) as Backup, canonical);
-    return { jars, mixes, rejected };
+    const { jars, mixes, rejected, groups } = migrateLibrary(JSON.parse(stored) as Backup, canonical);
+    return { jars, mixes, rejected, groups };
   } catch {
-    return { jars: [], mixes: [], rejected: [] };
+    return { jars: [], mixes: [], rejected: [], groups: [] };
   }
 }

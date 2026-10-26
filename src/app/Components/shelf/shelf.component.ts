@@ -1,6 +1,6 @@
 import { Component, ElementRef, inject, OnInit, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FlavorGroup } from '../../Core/graph/graph-data';
+import { CategoryGroup } from '../../Core/graph/graph-data';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
 import { newId } from '../../Core/library/id';
 import { Jar, jarTitle } from '../../Core/library/jar';
@@ -36,7 +36,7 @@ export class ShelfComponent implements OnInit {
     this.jars = this.store.jars();
   }
 
-  groups(): FlavorGroup[] {
+  groups(): CategoryGroup[] {
     return this.data.grouped();
   }
 

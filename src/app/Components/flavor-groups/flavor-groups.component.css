@@ -1,0 +1,60 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.row.all {
+  border-style: dashed;
+}
+
+.row input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--text);
+}
+
+label.row {
+  cursor: pointer;
+}
+
+.row-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Чипы состава только показывают вкусы, убирать их отсюда нечем */
+.flavor-chip.plain {
+  cursor: default;
+  background: transparent;
+}
+
+.row .flavor-chips {
+  flex: 1;
+  min-width: 0;
+}
+
+.row .flavor-chip {
+  min-height: 26px;
+  font-size: 0.8rem;
+}
+
+.new-group {
+  align-self: start;
+  min-height: 38px;
+}
+
+.picker {
+  max-height: 40dvh;
+  margin-top: 4px;
+}
+
+.empty {
+  padding: 4px 2px;
+}

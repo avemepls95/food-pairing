@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { FlavorGroup } from '../../Core/graph/graph-data';
+import { CategoryGroup } from '../../Core/graph/graph-data';
 import { filterGroups } from './flavor-filter';
 
-const groups: FlavorGroup[] = [
+const groups: CategoryGroup[] = [
   { category: 'Ягоды', items: ['вишня', 'клюква', 'малина'] },
   { category: 'Травы', items: ['мелисса', 'мята'] }
 ];
@@ -17,7 +17,7 @@ describe('filterGroups', () => {
   });
 
   it('ё в запросе => находит вкус с е', () => {
-    const withYo: FlavorGroup[] = [{ category: 'Напитки', items: ['черный чай'] }];
+    const withYo: CategoryGroup[] = [{ category: 'Напитки', items: ['черный чай'] }];
 
     expect(filterGroups(withYo, 'чёрный')).toEqual(withYo);
   });

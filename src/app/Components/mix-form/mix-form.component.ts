@@ -1,6 +1,6 @@
 import { afterNextRender, Component, ElementRef, HostListener, inject, Injector, output, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FlavorGroup } from '../../Core/graph/graph-data';
+import { CategoryGroup } from '../../Core/graph/graph-data';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
 import { isMixValid, Mix, MixCategory, MIX_MIN_ITEMS } from '../../Core/library/mix';
 import { FlavorPickerComponent } from '../flavor-picker/flavor-picker.component';
@@ -40,7 +40,7 @@ export class MixFormComponent {
     this.draft = undefined;
   }
 
-  groups(): FlavorGroup[] {
+  groups(): CategoryGroup[] {
     return this.data.grouped();
   }
 

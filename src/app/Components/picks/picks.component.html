@@ -43,6 +43,16 @@
           <p class="hint">{{ riskHints[risk] }}</p>
         </div>
 
+        <div class="field">
+          <button type="button" class="btn groups" (click)="openGroups()">
+            Группы вкусов
+            @if (groupCount) {
+              <span class="badge">{{ groupCount }}</span>
+            }
+          </button>
+          <p class="hint">Вкусы одной группы подбор считает одним вкусом</p>
+        </div>
+
         @if (hasRatings) {
           <label class="personal">
             <input type="checkbox" [checked]="usePersonal" (change)="togglePersonal()">
@@ -121,8 +131,7 @@
 
                 <div class="pairs">
                   @for (pair of item.pairs; track pair.a + pair.b) {
-                    <span class="pair" [class.one-sided]="pair.sides < 2"
-                          [title]="pair.sides < 2 ? 'Пару описала только одна из двух таблиц' : ''">
+                    <span class="pair" [class.one-sided]="pair.sides < 2" [title]="pairTitle(pair)">
                       <span class="dot {{ levelClass(pair.level) }}"></span>{{ pair.a }} и {{ pair.b }}
                     </span>
                   }
@@ -203,3 +212,4 @@
 </main>
 
 <app-mix-form (saved)="onSaved($event)"></app-mix-form>
+<app-flavor-groups (changed)="onGroupsChanged()"></app-flavor-groups>

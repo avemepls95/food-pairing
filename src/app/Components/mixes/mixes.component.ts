@@ -136,7 +136,8 @@ export class MixesComponent implements OnInit {
     }
 
     try {
-      const { jars, mixes, rejected, skipped, mixesOnly } = this.store.parseBackup(await file.text());
+      const { jars, mixes, rejected, groups, skipped, mixesOnly, withGroups } =
+        this.store.parseBackup(await file.text());
       const skippedNote = skipped
         ? `\nПропущено записей: ${skipped}. В них меньше двух позиций, нет оценки или нет вкусов.`
         : '';
@@ -147,7 +148,7 @@ export class MixesComponent implements OnInit {
         if (mixesOnly) {
           this.store.replaceMixes(mixes);
         } else {
-          this.store.replaceAll({ jars, mixes, rejected });
+          this.store.replaceAll({ jars, mixes, rejected, groups: withGroups ? groups : this.store.groups() });
         }
         this.setMixes(this.store.mixes());
         if (!this.count(this.tab)) {

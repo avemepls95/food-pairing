@@ -1,9 +1,9 @@
-import { FlavorGroup } from '../../Core/graph/graph-data';
+import { CategoryGroup } from '../../Core/graph/graph-data';
 
 export const toSearchKey = (text: string): string => text.toLowerCase().replace(/ё/g, 'е');
 
 /** Вкусы, подходящие под запрос. Название категории ищется тоже, чтобы открыть её целиком */
-export function filterGroups(groups: FlavorGroup[], term: string): FlavorGroup[] {
+export function filterGroups(groups: CategoryGroup[], term: string): CategoryGroup[] {
   const key = toSearchKey(term.trim());
   if (!key) {
     return groups;
