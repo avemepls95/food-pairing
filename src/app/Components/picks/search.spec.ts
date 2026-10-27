@@ -310,6 +310,25 @@ describe('recommend: разнообразие', () => {
     expect(items.map(item => item.repeat)).toEqual([false, false, true]);
   });
 
+  it('две банки с одинаковыми вкусами => на странице одна карточка', () => {
+    const jars = [jar('j1', 'вишня'), jar('j2', 'вишня'), jar('j3', 'мята')];
+
+    const result = recommend(request({ jarCount: 2, limit: 6 }), context(jars));
+
+    expect(result.shelves[0].items).toHaveLength(1);
+    expect(result.shelves[0].hiddenRepeats).toBe(1);
+  });
+
+  it('карточки с одним набором вкусов => вторая приходит по кнопке с пометкой', () => {
+    const jars = [jar('j1', 'вишня'), jar('j2', 'вишня'), jar('j3', 'мята')];
+
+    const result = recommend(request({ jarCount: 2, limit: 12 }), context(jars));
+    const items = result.shelves[0].items;
+
+    expect(items).toHaveLength(2);
+    expect(items.map(item => item.repeat)).toEqual([false, true]);
+  });
+
   it('комбинация всего одна => она и показывается', () => {
     const jars = jarsOf('вишня', 'малина', 'мята');
 

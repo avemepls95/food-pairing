@@ -168,7 +168,16 @@ describe('подбор с группами', () => {
 
     const shelfResult = pairs(2, groupContext(context({ jars: shelf }), grouping()));
 
-    expect(shelfResult.items.map(item => item.jarIds.join('+')).sort()).toEqual(['j1+j3', 'j2+j3']);
+    expect(shelfResult.items.some(item => item.jarIds.includes('j1') && item.jarIds.includes('j2'))).toBe(false);
+  });
+
+  it('две банки одной группы дают один и тот же микс => карточка одна', () => {
+    const shelf = [jar('j1', 'груша'), jar('j2', 'зеленая груша'), jar('j3', 'сыр')];
+
+    const shelfResult = pairs(2, groupContext(context({ jars: shelf }), grouping()));
+
+    expect(shelfResult.items).toHaveLength(1);
+    expect(shelfResult.hiddenRepeats).toBe(1);
   });
 
   it('попробован микс с зелёной грушей => микс с грушей уходит из выдачи', () => {

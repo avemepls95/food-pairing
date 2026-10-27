@@ -423,9 +423,18 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
   const limitOf = (flavor: string) => limits.get(flavor) ?? flavorLimit;
   const picked: Recommendation[] = [];
   const postponed: Recommendation[] = [];
+  // Карточки с тем же набором вкусов, что у показанной: так выглядят две банки, которые
+  // различаются только названием, и банки, чьи вкусы пользователь свёл в одну группу
+  const sameFlavors: Recommendation[] = [];
   const seen = new Map<string, number>();
+  const shown = new Set<string>();
 
   for (const item of pool) {
+    const key = flavorKey(item.flavors);
+    if (shown.has(key)) {
+      sameFlavors.push(item);
+      continue;
+    }
     const tooClose = jarCount > 2 && picked.some(other =>
       other.jarIds.filter(id => item.jarIds.includes(id)).length >= jarCount - 1);
     const tooOften = item.flavors.some(flavor => (seen.get(flavor) ?? 0) >= limitOf(flavor));
@@ -434,6 +443,7 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
       continue;
     }
     picked.push(item);
+    shown.add(key);
     item.flavors.forEach(flavor => seen.set(flavor, (seen.get(flavor) ?? 0) + 1));
     if (picked.length === limit) {
       break;
@@ -443,12 +453,16 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
   // На первой странице отложенные добирают список только до минимума: набивать страницу
   // повторами того же вкуса хуже, чем показать меньше карточек. За "Показать ещё" пользователь
   // просит остальное сам, и повторы идут в дело с пометкой
+  // Карточка с тем же набором вкусов на первой странице читается как дубль, поэтому её
+  // достаёт только кнопка
   const tailTarget = limit > CARDS_PER_PAGE ? limit : MIN_CARDS;
-  const tail = postponed.slice(0, Math.max(0, tailTarget - picked.length))
+  const hidden = postponed.concat(sameFlavors);
+  const source = limit > CARDS_PER_PAGE ? hidden : postponed;
+  const tail = source.slice(0, Math.max(0, tailTarget - picked.length))
     .map(item => ({ ...item, repeat: true }));
   const items = picked.concat(tail);
 
-  return { items, skippedTried, skippedRejected, hiddenRepeats: postponed.length - tail.length };
+  return { items, skippedTried, skippedRejected, hiddenRepeats: hidden.length - tail.length };
 }
 
 /**
