@@ -13,12 +13,14 @@
   gap: 8px;
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  border: 1px solid var(--border-strong);
   background: var(--surface);
-  box-shadow: var(--shadow);
-  font-size: 0.9rem;
-  font-weight: 500;
+  color: var(--text);
+  font-family: var(--font-cond);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
@@ -38,11 +40,10 @@
   flex-shrink: 0;
   min-height: 32px;
   padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  border: 1px solid var(--text);
   background: var(--surface);
   color: var(--text);
-  font-size: 0.82rem;
+  font-size: 13px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -59,19 +60,23 @@
   gap: 10px;
 }
 
-/* Пока грузятся данные, список продуктов пуст, поэтому высота панели задана заранее.
-   Панель - контейнер запросов: в альбомной ориентации экран широкий, а сама панель узкая */
+/* Панель - контейнер запросов: в альбомной ориентации экран широкий, а сама панель узкая */
 .controls {
   container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  height: 60dvh;
+  flex: 1;
   min-height: 0;
   padding: 14px;
 }
 
 .filters-hidden .controls {
+  display: none;
+}
+
+/* На узком экране панель и ответ делят одно место, поэтому открытая панель занимает его целиком */
+.page:not(.filters-hidden):not(.fullscreen) .result {
   display: none;
 }
 
@@ -100,9 +105,12 @@
   gap: 5px;
   min-height: 38px;
   padding: 0 4px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 0.78rem;
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-cond);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
   user-select: none;
   transition: opacity 0.15s, background-color 0.15s;
@@ -123,9 +131,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
-  padding: 0 4px;
-  font-size: 0.72rem;
+  margin-top: 8px;
+  padding: 0 2px;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
@@ -152,7 +164,6 @@
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 50%;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -170,18 +181,6 @@
   }
 }
 
-.products {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.clear-btn {
-  flex-shrink: 0;
-  margin-top: 10px;
-}
-
 /* Во весь экран: на телефоне Fullscreen API недоступен, поэтому прячем всё вокруг графа */
 .page.fullscreen {
   gap: 0;
@@ -195,24 +194,34 @@
   display: none;
 }
 
-.page.fullscreen .graph-card {
+.page.fullscreen .result {
   border: 0;
-  border-radius: 0;
 }
 
-.graph-card {
+.result {
   position: relative;
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
 }
 
-.graph-tools {
+.list-layer, .graph-layer {
+  height: 100%;
+}
+
+/* Список и граф показывают одни и те же связи, поэтому на экране всегда один из них */
+.page:not(.graph-view) .graph-layer,
+.page.graph-view .list-layer {
+  display: none;
+}
+
+.view-tools {
   position: absolute;
   right: max(10px, env(safe-area-inset-right));
   bottom: max(10px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
 }
 
@@ -221,15 +230,27 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
+  border: 1px solid var(--border-strong);
   background: var(--surface);
-  color: var(--muted);
-  box-shadow: var(--shadow);
+  color: var(--text);
   cursor: pointer;
 }
 
-.graph-empty {
+/* Переключатель вида - главный инструмент угла, поэтому он с подписью */
+.view-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  padding: 0 13px;
+  font-family: var(--font-cond);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.result-empty {
   position: absolute;
   inset: 0;
   display: grid;
@@ -242,22 +263,36 @@
   color: var(--muted);
 }
 
-.graph-empty p {
+.result-empty p {
   margin: 0;
 }
 
+/* Ошибка загрузки закрывает собой и список, и граф */
+.load-error {
+  background: var(--surface);
+}
+
+/* Строка собрана флексом, чтобы кнопка внутри неё добирала до 44 px, не задевая соседнюю */
 .note {
   flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
   padding: 0 6px;
 }
 
 .note-action {
-  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
   border: 0;
   background: none;
   color: var(--text);
   font: inherit;
   text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 
@@ -271,18 +306,10 @@
   .filters-toggle:hover, .selected-chip:hover, .chip:hover, .tool-btn:hover {
     background: var(--surface-hover);
   }
-
-  .tool-btn:hover {
-    color: var(--text);
-  }
 }
 
 .filters-toggle:active, .selected-chip:active, .chip:active, .tool-btn:active {
   background: var(--surface-hover);
-}
-
-.filters-toggle:active, .tool-btn:active {
-  transform: scale(0.97);
 }
 
 /* В четыре колонки подписи цветов влезают только в панель шире 310px */
@@ -292,7 +319,33 @@
   }
 }
 
-/* В альбомной ориентации панель уходит в столбец слева, и графу остаётся вся высота */
+/* До 600 px от действия в верхней строке остаётся значок, потому что место нужно вкладкам */
+@media (max-width: 599px) {
+  .filters-toggle {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .filters-toggle .action-label {
+    display: none;
+  }
+}
+
+/* На невысоком экране легенда с режимом съедают почти всю панель, и списку продуктов остаются
+   десятки пикселей, поэтому панель прокручивается целиком, одним блоком */
+@media (max-height: 640px) {
+  .controls {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .controls app-flavor-picker {
+    flex: none;
+  }
+}
+
+/* От планшета панель уходит в столбец слева, и ответ стоит рядом с ней */
 @media (min-width: 760px), (orientation: landscape) and (min-width: 560px) {
   .workspace {
     flex-direction: row;
@@ -301,27 +354,11 @@
 
   .controls {
     width: min(340px, 42vw);
-    flex-shrink: 0;
-    height: auto;
-  }
-}
-
-/* Невысокий экран: в панели на 60dvh внутреннему списку оставалось несколько пикселей, поэтому
-   панель прокручивается целиком, одним блоком, а кнопка сброса остаётся на виду */
-@media (max-height: 780px) {
-  .controls {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .products {
     flex: none;
   }
 
-  .clear-btn {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
+  .page:not(.filters-hidden):not(.fullscreen) .result {
+    display: block;
   }
 }
 

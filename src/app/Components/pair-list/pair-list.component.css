@@ -1,0 +1,104 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sections {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  /* Отступ под кнопки, которые стоят в углу списка */
+  padding-bottom: 56px;
+}
+
+.level-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 13px 13px 5px;
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.level-name {
+  flex: 1;
+}
+
+.level-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 13px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row.chosen {
+  font-weight: 600;
+}
+
+.row-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.row-partner {
+  color: var(--muted);
+}
+
+.row-category {
+  flex-shrink: 0;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  height: 100%;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+}
+
+/* Ховер только с мышью: на тач-экране он залипает после тапа */
+@media (hover: hover) {
+  .row:hover {
+    background: var(--surface-hover);
+  }
+}
+
+.row:active {
+  background: var(--surface-hover);
+}

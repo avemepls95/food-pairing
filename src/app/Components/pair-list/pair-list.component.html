@@ -1,0 +1,24 @@
+@if (!selected().length) {
+  <p class="empty hint">Выберите продукт, чтобы увидеть его пары</p>
+} @else if (!sections().length) {
+  <p class="empty hint">Включите хотя бы один цвет в фильтрах</p>
+} @else {
+  <div class="sections">
+    @for (section of sections(); track section.level) {
+      <h2 class="level-head">
+        <span class="dot level-{{ section.level }}"></span>
+        <span class="level-name">{{ section.label }}</span>
+        <span class="level-count">{{ section.rows.length }}</span>
+      </h2>
+      @for (row of section.rows; track row.name + '|' + row.partner) {
+        <button type="button" class="row" [class.chosen]="isSelected(row.name)"
+                [title]="isSelected(row.name) ? 'Убрать из выбора' : 'Добавить в выбор'"
+                (click)="toggled.emit(row.name)">
+          <span class="dot" [style.background]="color(row.name)"></span>
+          <span class="row-name">{{ row.name }}@if (showPartner) {<span class="row-partner"> и {{ row.partner }}</span>}</span>
+          <span class="row-category">{{ category(row.name) }}</span>
+        </button>
+      }
+    }
+  </div>
+}

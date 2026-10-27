@@ -2,9 +2,11 @@ import { Component, ElementRef, HostListener, inject, NgZone, OnDestroy, OnInit,
 import * as d3 from 'd3';
 import { NavComponent } from '../nav/nav.component';
 import { categoryColor } from '../../Core/graph/categories';
-import { CategoryGroup, GraphLink, GraphNode, Level } from '../../Core/graph/graph-data';
+import { CategoryGroup, GraphLink, GraphNode, Level, VisibleLevel } from '../../Core/graph/graph-data';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
 import { FlavorPickerComponent } from '../flavor-picker/flavor-picker.component';
+import { PairListComponent } from '../pair-list/pair-list.component';
+import { LevelOption, PairSection, pairSections } from '../pair-list/pair-sections';
 
 interface Node extends GraphNode, d3.SimulationNodeDatum {
   hidden?: boolean;
@@ -18,8 +20,7 @@ interface SimLink extends d3.SimulationLinkDatum<Node> {
 
 type Mode = 'strict' | 'extended';
 
-/** Бледные связи на графе не показываются, фильтра по цвету у них нет */
-type VisibleLevel = Exclude<Level, 'pale'>;
+type View = 'list' | 'graph';
 
 type LinkSelection = d3.Selection<SVGLineElement, SimLink, SVGGElement, unknown>;
 type NodeSelection = d3.Selection<SVGCircleElement, Node, SVGGElement, unknown>;
@@ -27,9 +28,12 @@ type LabelSelection = d3.Selection<SVGGElement, Node, SVGGElement, unknown>;
 
 const SETTINGS_KEY = 'food-pairing.graph-settings';
 
+/** Ширина, на которой панель уходит в столбец слева и ответ встаёт рядом с ней */
+const SIDE_PANEL = '(min-width: 760px), (orientation: landscape) and (min-width: 560px)';
+
 @Component({
   selector: 'app-graph',
-  imports: [FlavorPickerComponent, NavComponent],
+  imports: [FlavorPickerComponent, NavComponent, PairListComponent],
   templateUrl: './graph.component.html',
   styleUrl: './graph.component.css'
 })
@@ -45,6 +49,7 @@ export class GraphComponent implements OnInit, OnDestroy {
   private redrawTimeout: ReturnType<typeof setTimeout> | undefined;
   private laidOutOnce = false;
   private destroyed = false;
+  private sidePanel = matchMedia(SIDE_PANEL);
 
   filtersOpen = true;
   fullscreen = false;
@@ -53,9 +58,12 @@ export class GraphComponent implements OnInit, OnDestroy {
   loadError = '';
   note = '';
   canShowHidden = false;
+  canRelaxMode = false;
   mode: Mode = 'extended';
+  view: View = 'list';
   graph: { nodes: Node[]; links: GraphLink[] } = { nodes: [], links: [] };
   filteredLinks: GraphLink[] = [];
+  sections: PairSection[] = [];
   selectedProducts: string[] = [];
   groupedProducts: CategoryGroup[] = [];
 
@@ -67,7 +75,7 @@ export class GraphComponent implements OnInit, OnDestroy {
   };
 
   // По убыванию сочетаемости
-  readonly levels: { color: VisibleLevel; label: string }[] = [
+  readonly levels: readonly LevelOption[] = [
     { color: 'red', label: 'Красный' },
     { color: 'yellow', label: 'Жёлтый' },
     { color: 'green', label: 'Зелёный' },
@@ -76,6 +84,9 @@ export class GraphComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     this.restoreSettings();
+    // На экране телефона 190 узлов вписываются масштабом 0.2, подписи становятся нечитаемы,
+    // поэтому там тот же набор связей открывается списком
+    this.view = this.sidePanel.matches ? 'graph' : 'list';
     await this.loadData();
   }
 
@@ -131,6 +142,15 @@ export class GraphComponent implements OnInit, OnDestroy {
     this.fullscreen = !this.fullscreen;
   }
 
+  setView(view: View): void {
+    if (this.view === view) {
+      return;
+    }
+    this.view = view;
+    // Размер контейнера станет известен после того, как страница перерисуется с открытым графом
+    this.renderGraph(false);
+  }
+
   applyFilter(immediate = false): void {
     let visibleLinks = this.graph.links.filter(link => this.shouldShowLink(link));
 
@@ -142,7 +162,17 @@ export class GraphComponent implements OnInit, OnDestroy {
     this.filteredLinks = visibleLinks;
     this.updateNodesVisibility();
     this.updateNote();
+    this.updateSections();
     this.renderGraph(immediate);
+  }
+
+  /** Пока продукт не выбран, список показывает приглашение, поэтому разделы не собираем */
+  private updateSections(): void {
+    const shown = this.levels.filter(level => this.filter[level.color]);
+
+    this.sections = this.selectedProducts.length
+      ? pairSections(this.filteredLinks, this.selectedProducts, shown)
+      : [];
   }
 
   /**
@@ -176,6 +206,7 @@ export class GraphComponent implements OnInit, OnDestroy {
 
     this.note = parts.join(', ');
     this.canShowHidden = hiddenByColor > 0;
+    this.canRelaxMode = this.mode === 'strict' && selected.size > 0 && !this.filteredLinks.length;
   }
 
   private emptyReason(selectedCount: number): string {
@@ -223,11 +254,34 @@ export class GraphComponent implements OnInit, OnDestroy {
   }
 
   toggleProductSelection(product: string): void {
+    const wasEmpty = !this.selectedProducts.length;
     this.selectedProducts = this.selectedProducts.includes(product)
       ? this.selectedProducts.filter(p => p !== product)
       : [...this.selectedProducts, product];
 
+    this.syncFilters(wasEmpty);
     this.applyFilter();
+  }
+
+  clearSelection(): void {
+    this.selectedProducts = [];
+    this.syncFilters(false);
+    this.applyFilter();
+  }
+
+  /**
+   * Без столбца сбоку панель занимает весь экран. После первого выбора она уступает место
+   * ответу, а на пустом выборе возвращается к поиску.
+   */
+  private syncFilters(wasEmpty: boolean): void {
+    if (this.sidePanel.matches) {
+      return;
+    }
+    if (!this.selectedProducts.length) {
+      this.filtersOpen = true;
+    } else if (wasEmpty) {
+      this.filtersOpen = false;
+    }
   }
 
   // Выбранные цвета и режим переживают перезагрузку, выбранные продукты - нет
@@ -286,6 +340,10 @@ export class GraphComponent implements OnInit, OnDestroy {
   private renderGraph(immediate: boolean): void {
     cancelAnimationFrame(this.redrawHandle);
     clearTimeout(this.redrawTimeout);
+    // Пока открыт список, граф скрыт и его контейнер не имеет размера
+    if (this.view !== 'graph') {
+      return;
+    }
     if (immediate) {
       this.zone.runOutsideAngular(() => this.drawGraph());
       return;
