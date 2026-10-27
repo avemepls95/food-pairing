@@ -232,9 +232,12 @@
   padding: 2px 7px;
 }
 
+/* Родитель для пузырька подсказки: он занимает всю ширину карточки */
 .marks {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
@@ -254,6 +257,34 @@
   border-style: solid;
   border-color: var(--star-on);
   color: var(--star-on);
+}
+
+/* Пометка про данные открывает подсказку, поэтому она кнопка */
+.data-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 2px 10px;
+  background: none;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.help-bubble ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.help-bubble li + li {
+  margin-top: 4px;
+}
+
+@media (hover: hover) {
+  .data-btn:hover {
+    color: var(--text);
+  }
 }
 
 .pick-actions {

@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, inject, OnInit, viewChild } from '@angular/core';
+import { Component, HostListener, inject, OnInit, viewChild } from '@angular/core';
 import { Aroma, aromaTest } from '../../Core/graph/aroma';
 import { PairLevel } from '../../Core/graph/graph-data';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
@@ -86,6 +86,8 @@ export class PicksComponent implements OnInit {
   loadError = '';
   expanded = new Set<number>();
   moreOpen = false;
+  /** Ключ карточки с открытой подсказкой про данные */
+  dataHelp = '';
 
   async ngOnInit(): Promise<void> {
     try {
@@ -256,6 +258,40 @@ export class PicksComponent implements OnInit {
     }
 
     return parts.join('\n');
+  }
+
+  cardKey(item: Recommendation): string {
+    return item.jarIds.join('+');
+  }
+
+  toggleDataHelp(item: Recommendation): void {
+    const key = this.cardKey(item);
+    this.dataHelp = this.dataHelp === key ? '' : key;
+  }
+
+  @HostListener('document:click', ['$event'])
+  closeDataHelp(event: MouseEvent): void {
+    if (this.dataHelp && !(event.target as Element).closest('.data-help')) {
+      this.dataHelp = '';
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  closeOnEscape(): void {
+    this.dataHelp = '';
+  }
+
+  /** Вкусы микса без своей таблицы. У группы таблица есть, если она есть хотя бы у одного её вкуса */
+  thinFlavors(item: Recommendation): string[] {
+    return item.flavors.filter(name => !this.grouping.flavorsOf(name).some(flavor => this.data.hasTable(flavor)));
+  }
+
+  oneTablePairs(item: Recommendation): number {
+    return item.pairs.filter(pair => pair.sides === 1).length;
+  }
+
+  noTablePairs(item: Recommendation): number {
+    return item.pairs.filter(pair => !pair.sides).length;
   }
 
   /** Больше не предлагать этот набор вкусов. Запрет записан вкусами банок, без групп */

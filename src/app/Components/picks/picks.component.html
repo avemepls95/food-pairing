@@ -146,11 +146,34 @@
                 </div>
 
                 <div class="marks">
-                  @if (item.thinData) {
-                    <span class="mark">мало данных</span>
-                  }
-                  @if (item.oneSided) {
-                    <span class="mark">пар с одной стороны: {{ item.oneSided }}</span>
+                  @if (item.thinData || item.oneSided) {
+                    <div class="help data-help" [class.open]="dataHelp === cardKey(item)">
+                      <button type="button" class="mark data-btn" [attr.aria-expanded]="dataHelp === cardKey(item)"
+                              [attr.aria-describedby]="'data-help-' + cardKey(item)" (click)="toggleDataHelp(item)">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                          <circle cx="12" cy="12" r="9"/>
+                          <path d="M12 11.2v5"/>
+                          <circle cx="12" cy="7.4" r="1" fill="currentColor" stroke="none"/>
+                        </svg>
+                        неполные данные
+                      </button>
+                      <div class="help-bubble" role="tooltip" [id]="'data-help-' + cardKey(item)">
+                        <p>Балл собран из таблиц сочетаемости, и для этого микса данных в них меньше обычного.</p>
+                        <ul>
+                          @if (oneTablePairs(item)) {
+                            <li>Пар, которые описала только одна из двух таблиц: {{ oneTablePairs(item) }}</li>
+                          }
+                          @if (noTablePairs(item)) {
+                            <li>Пар, которых никто не измерял: {{ noTablePairs(item) }}</li>
+                          }
+                          @if (item.thinData) {
+                            <li>Своей таблицы нет у вкусов: {{ thinFlavors(item).join(', ') }}.
+                              Их пары видны из таблиц других продуктов</li>
+                          }
+                        </ul>
+                      </div>
+                    </div>
                   }
                   @if (item.planned) {
                     <span class="mark planned">в планах</span>

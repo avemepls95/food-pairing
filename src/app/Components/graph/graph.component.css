@@ -146,10 +146,6 @@
   flex: 1;
 }
 
-.help {
-  display: flex;
-}
-
 .help-btn {
   display: grid;
   place-items: center;
@@ -167,43 +163,10 @@
   color: var(--text);
 }
 
-/* Пузырёк занимает ширину панели: у кнопки справа он уходил за край экрана */
-.help-bubble {
-  display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  z-index: 10;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--text);
-  color: var(--surface);
-  box-shadow: 0 8px 24px rgb(16 24 40 / 20%);
-  font-size: 0.85rem;
-  line-height: 1.45;
-}
-
-.help-bubble p {
-  margin: 0;
-}
-
-.help-bubble p + p {
-  margin-top: 8px;
-}
-
-.help.open .help-bubble {
-  display: block;
-}
-
 @media (hover: hover) {
   .help-btn:hover {
     background: var(--surface-hover);
     color: var(--text);
-  }
-
-  .help:hover .help-bubble {
-    display: block;
   }
 }
 

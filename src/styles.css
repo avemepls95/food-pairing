@@ -285,6 +285,46 @@ html {
   font-weight: 600;
 }
 
+/* Подсказка у кнопки или пометки: открывается кликом, а при наличии мыши ещё и наведением.
+   Пузырёк растянут по ширине ближайшего родителя с position: relative. У кнопки сбоку он уходил за край экрана */
+.help {
+  display: flex;
+}
+
+.help-bubble {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--surface);
+  box-shadow: 0 8px 24px rgb(16 24 40 / 20%);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.help-bubble p {
+  margin: 0;
+}
+
+.help-bubble p + p {
+  margin-top: 8px;
+}
+
+.help.open .help-bubble {
+  display: block;
+}
+
+@media (hover: hover) {
+  .help:hover .help-bubble {
+    display: block;
+  }
+}
+
 /* Содержимое графа рисует d3, поэтому стили компонента до него не доходят */
 .graph-container .text-node {
   cursor: pointer;
