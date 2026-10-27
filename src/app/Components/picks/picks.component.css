@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px;
+  padding: 13px;
 }
 
 /* Цифре хватает узкой колонки, слову нужна колонка по содержимому */
@@ -21,7 +21,7 @@
 }
 
 .counts button {
-  padding: 0 8px;
+  padding: 0 10px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -37,19 +37,59 @@
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: var(--text);
+  accent-color: var(--red);
 }
 
 .ask {
   text-align: center;
 }
 
+/* Пересчёт объявляет себя: под карточкой управления идёт киноварная полоса */
+.calculating {
+  position: relative;
+  padding: 10px 4px 10px 0;
+  font-family: var(--font-cond);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+  overflow: hidden;
+}
+
+.calculating::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 40%;
+  height: 2px;
+  background: var(--red);
+  animation: sweep 1.1s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calculating::after {
+    animation: none;
+    width: 100%;
+  }
+}
+
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 24px 16px;
+  gap: 12px;
+  padding: 28px 16px;
   text-align: center;
 }
 
@@ -63,12 +103,18 @@
   gap: 8px;
 }
 
-.shelf-head {
+.shelf-head, .shelf-toggle {
   display: flex;
   align-items: center;
+  font-family: var(--font-cond);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.shelf-head {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
 }
 
 .shelf-title {
@@ -76,19 +122,34 @@
 }
 
 .shelf-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   min-height: 44px;
   padding: 8px 4px;
   border: 0;
   background: transparent;
   color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 600;
   text-align: left;
   cursor: pointer;
+}
+
+/* Лучший балл полки печатается той же ступенью, что и плашка микса */
+.shelf-toggle .badge {
+  height: 22px;
+}
+
+.shelf-toggle .badge.top {
+  border: 0;
+  background: var(--red);
+  color: var(--on-red);
+}
+
+.shelf-toggle .badge.mid {
+  color: var(--text);
+}
+
+.shelf-toggle .badge.low {
+  color: var(--muted);
 }
 
 .chevron {
@@ -100,16 +161,21 @@
 }
 
 .chosen {
+  padding: 2px 7px;
+  border: 1px solid var(--border-strong);
   color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
 }
 
+/* Пластина этикетки: рамка в полтора пикселя, киноварная плашка балла в углу,
+   внутри волосяные линейки */
 .pick {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
+  border: 1.5px solid var(--text);
+  padding: 0;
 }
 
 .pick-head {
@@ -121,22 +187,27 @@
 .pick-title {
   flex: 1;
   min-width: 0;
+  padding: 13px 0 12px 13px;
 }
 
 .pick-title h3 {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-family: var(--font-cond);
+  /* Имя растёт вместе с пластиной: на телефоне 28 px, на широком экране до 50 */
+  font-size: clamp(28px, 5.4vw, 50px);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 
 .plus {
-  color: var(--muted);
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .part + .part {
-  margin-left: 4px;
+  margin-left: 0.28em;
 }
 
 .plus::after {
@@ -144,76 +215,124 @@
 }
 
 .reason {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
 }
 
+/* Три печатных штампа сорта: сплошная киноварь, рамка в рамке, одиночный контур.
+   Бумажная заливка штампу не достаётся - её носит главное действие пластины */
 .score {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   flex-shrink: 0;
   gap: 1px;
+  padding: 7px 11px 8px;
   white-space: nowrap;
 }
 
+.score.top {
+  background: var(--red);
+  color: var(--on-red);
+}
+
+.score.mid {
+  padding: 4px 8px 5px;
+  border: 1.5px solid var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--surface), inset 0 0 0 3px var(--text);
+  color: var(--text);
+}
+
+.score.low {
+  padding: 5.5px 9.5px 6.5px;
+  border: 1.5px solid var(--border-strong);
+  color: var(--muted);
+}
+
 .score-word {
-  font-size: 0.88rem;
+  font-family: var(--font-cond);
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .score-value {
-  font-size: 0.72rem;
-  color: var(--muted);
+  font-family: var(--font-cond);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
+/* Состав как служебная таблица этикетки: доли колонкой, роли капителью */
 .components {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   margin: 0;
   padding: 0;
+  border-top: 1px solid var(--border-strong);
   list-style: none;
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .components li {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px 9px;
+  padding: 8px 13px;
+}
+
+.components li + li {
+  border-top: 1px solid var(--border);
 }
 
 .components .share {
-  min-width: 38px;
-  font-weight: 600;
+  min-width: 42px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .components .role {
+  min-width: 54px;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--muted);
-  font-size: 0.8rem;
 }
 
 .components .brand {
   color: var(--muted);
 }
 
+/* Разбор пар в подвале пластины */
 .pairs {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  padding: 10px 13px;
+  border-top: 1px solid var(--border-strong);
 }
 
 .pair {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--surface-hover);
+  gap: 7px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.pair-level {
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--muted);
-  font-size: 0.78rem;
 }
 
 /* Неразрывный пробел после разделителя: при переносе он уходит вместе со словом */
@@ -228,8 +347,8 @@
 
 /* Пару описала только одна из двух таблиц */
 .pair.one-sided {
-  border: 1px dashed var(--border-strong);
-  padding: 2px 7px;
+  border-style: dashed;
+  border-color: var(--border-strong);
 }
 
 /* Родитель для пузырька подсказки: он занимает всю ширину карточки */
@@ -239,6 +358,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  padding: 0 13px 10px;
 }
 
 .marks:empty {
@@ -246,11 +366,14 @@
 }
 
 .mark {
-  padding: 2px 8px;
+  padding: 3px 8px;
   border: 1px dashed var(--border-strong);
-  border-radius: 999px;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .mark.planned {
@@ -265,10 +388,13 @@
   align-items: center;
   gap: 5px;
   min-height: 28px;
-  padding: 2px 10px;
   background: none;
   font: inherit;
-  font-size: 0.75rem;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
@@ -287,11 +413,17 @@
   }
 }
 
+/* «Больше не предлагать» отделено пустотой: мимо соседней кнопки пальцем не промахнуться */
 .pick-actions {
-  display: grid;
-  grid-template-columns: auto 1fr 1fr;
-  gap: 8px;
+  display: flex;
   align-items: center;
+  gap: 8px;
+  padding: 0 13px 13px;
+}
+
+.pick-actions .icon-btn {
+  margin-right: auto;
+  border: 1px solid var(--border);
 }
 
 .empty-shelf, .skipped {
@@ -305,17 +437,19 @@
   color: var(--text);
   font: inherit;
   text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 
 .show-more {
   align-self: center;
-  min-width: 180px;
+  min-width: 200px;
 }
 
 .groups {
   align-self: start;
   min-height: 44px;
+  gap: 8px;
 }
 
 /* Настройки, которые выставляют один раз: сводка строкой, подробности по нажатию */
@@ -332,10 +466,14 @@
   min-height: 44px;
   padding: 0 4px;
   border: 0;
+  border-top: 1px solid var(--border);
   background: transparent;
   color: var(--muted);
-  font: inherit;
-  font-size: 0.85rem;
+  font-family: var(--font-cond);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   text-align: left;
   cursor: pointer;
 }
@@ -349,5 +487,6 @@
 .more-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
+

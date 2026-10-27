@@ -19,7 +19,7 @@
       @if (!answered) {
         <ng-container *ngTemplateOutlet="jarCountField"></ng-container>
       } @else {
-        <app-aroma-filter [flavors]="shelfFlavors" [selected]="aromas" where="на полке"
+        <app-aroma-filter [flavors]="shelfFlavors" [selected]="aromas" where="на полке" [compact]="true"
                           (changed)="setAromas($event)"></app-aroma-filter>
 
         <div class="field">
@@ -71,7 +71,7 @@
     }
 
     @if (calculating) {
-      <p class="hint" role="status">Считаю...</p>
+      <p class="calculating" role="status">Считаю</p>
     }
 
     @if (result; as result) {
@@ -88,7 +88,7 @@
                 </svg>
                 {{ shelfTitle(shelf) }}
                 @if (shelf.items.length) {
-                  <span class="badge">{{ shelf.items[0].score }}</span>
+                  <span class="badge {{ scoreTier(shelf.items[0].score) }}">{{ shelf.items[0].score }}</span>
                 }
                 @if (result.chosen === shelf.jarCount) {
                   <span class="chosen">выбор подбора</span>
@@ -117,7 +117,8 @@
                     </h3>
                     <p class="reason hint">{{ reason(item) }}</p>
                   </div>
-                  <div class="score" [attr.aria-label]="scoreWord(item.score) + ' микс, балл ' + item.score + ' из 100'">
+                  <div class="score {{ scoreTier(item.score) }}"
+                       [attr.aria-label]="scoreWord(item.score) + ' микс, балл ' + item.score + ' из 100'">
                     <span class="score-word">{{ scoreWord(item.score) }}</span>
                     <span class="score-value">{{ item.score }}</span>
                   </div>

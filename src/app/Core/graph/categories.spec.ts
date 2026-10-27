@@ -21,10 +21,10 @@ describe('roleOfCategory', () => {
 
 describe('categoryColor', () => {
   it('известная категория => свой цвет', () => {
-    expect(categoryColor('Ягоды')).toBe('#ff6b6b');
+    expect(categoryColor('Ягоды')).toBe('#d02b4c');
   });
 
   it('неизвестная категория => цвет по умолчанию', () => {
-    expect(categoryColor('Грибы')).toBe('#8395a7');
+    expect(categoryColor('Грибы')).toBe('#76736c');
   });
 });

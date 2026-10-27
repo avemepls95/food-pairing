@@ -5,7 +5,6 @@
   min-height: 44px;
   padding: 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 12px;
 }
 
 .row.all {
@@ -17,7 +16,7 @@
   height: 18px;
   margin: 0;
   flex-shrink: 0;
-  accent-color: var(--text);
+  accent-color: var(--red);
 }
 
 label.row {
@@ -25,14 +24,18 @@ label.row {
 }
 
 .row-name {
-  font-weight: 600;
+  font-family: var(--font-cond);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 /* Чипы состава только показывают вкусы, убирать их отсюда нечем */
 .flavor-chip.plain {
   cursor: default;
-  background: transparent;
+  border-color: var(--border);
 }
 
 .row .flavor-chips {
@@ -42,12 +45,12 @@ label.row {
 
 .row .flavor-chip {
   min-height: 26px;
-  font-size: 0.8rem;
+  font-size: 13px;
 }
 
 .new-group {
   align-self: start;
-  min-height: 38px;
+  min-height: 40px;
 }
 
 .picker {

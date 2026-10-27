@@ -20,6 +20,11 @@
     <button type="button" class="chip" [class.active]="isMoodSelected(mood)" [attr.aria-pressed]="isMoodSelected(mood)"
             (click)="toggleMood(mood)">{{ mood.label }}</button>
   }
+  @if (compact() && !searchOpen) {
+    <button type="button" class="chip add" [attr.aria-expanded]="false" (click)="searchOpen = true">
+      Или вкус
+    </button>
+  }
 </div>
 
 @for (mood of chosenMoods; track mood.id) {
@@ -29,18 +34,20 @@
   <p class="hint">В миксе будет всё выбранное</p>
 }
 
-<input type="search" class="input" [(ngModel)]="term" placeholder="Или конкретный вкус: кокос, мята"
-       aria-label="Найти вкус" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
-       (keydown.enter)="pickFirst()">
+@if (!compact() || searchOpen) {
+  <input type="search" class="input" [(ngModel)]="term" placeholder="Или конкретный вкус: кокос, мята"
+         aria-label="Найти вкус" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+         (keydown.enter)="pickFirst()">
 
-@if (term.trim()) {
-  @if (suggestions.length) {
-    <div class="chips" role="group" aria-label="Подходящие вкусы">
-      @for (aroma of suggestions; track key(aroma)) {
-        <button type="button" class="chip suggestion" (click)="pick(aroma)">{{ label(aroma) }}</button>
-      }
-    </div>
-  } @else {
-    <p class="hint">{{ nothingFound }}</p>
+  @if (term.trim()) {
+    @if (suggestions.length) {
+      <div class="chips" role="group" aria-label="Подходящие вкусы">
+        @for (aroma of suggestions; track key(aroma)) {
+          <button type="button" class="chip suggestion" (click)="pick(aroma)">{{ label(aroma) }}</button>
+        }
+      </div>
+    } @else {
+      <p class="hint">{{ nothingFound }}</p>
+    }
   }
 }

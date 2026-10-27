@@ -1,14 +1,13 @@
 .item-row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: 8px;
+  padding: 9px;
   border: 1px solid var(--border);
-  border-radius: 12px;
 }
 
 .item-row.picking {
-  border-color: var(--border-strong);
+  border-color: var(--text);
 }
 
 .item-head {
@@ -21,6 +20,7 @@
 .share {
   text-align: center;
   padding-inline: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .picker {
@@ -40,6 +40,20 @@
   gap: 8px;
 }
 
+/* Сумма долей всегда на виду: она обязана сойтись в 100 */
+.field-head .hint {
+  font-family: var(--font-cond);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* Доли не сошлись: киноварная плашка видна раньше, чем прочитано число */
 .field-head .over {
-  color: var(--level-red);
+  padding: 2px 7px;
+  background: var(--red);
+  color: var(--on-red);
 }

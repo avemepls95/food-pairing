@@ -231,6 +231,15 @@ export class PicksComponent implements OnInit {
     return score >= 44 ? 'так себе' : 'рискованный';
   }
 
+  /** Ступень балла для плашки: сплошной штамп получает только высший сорт */
+  scoreTier(score: number): string {
+    if (score >= 75) {
+      return 'top';
+    }
+
+    return score >= 58 ? 'mid' : 'low';
+  }
+
   componentTitle(jar: Jar): string {
     return jar.name || jar.flavors.join(' + ');
   }

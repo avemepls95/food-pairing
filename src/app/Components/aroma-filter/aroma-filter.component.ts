@@ -24,9 +24,12 @@ export class AromaFilterComponent {
   selected = input.required<Aroma[]>();
   /** Где лежат вкусы, для подсказок: «на полке», «в миксах» */
   where = input.required<string>();
+  /** Поиск конкретного вкуса прячется за кнопку: на подборе фильтр стоит над выдачей */
+  compact = input(false);
   changed = output<Aroma[]>();
 
   term = '';
+  searchOpen = false;
 
   private categoryOf = (flavor: string) => this.data.categoryOf(flavor);
 

@@ -35,27 +35,32 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     .nav {
       flex: 1;
       min-width: 0;
-      max-width: 300px;
+      max-width: 320px;
+    }
+
+    /* Киноварь метит, где ты сейчас. Бумажная выворотка остаётся за главным действием страницы */
+    .nav .active {
+      background: var(--red);
+      color: var(--on-red);
     }
 
     /* Граф под рукой, но вне основного ряда: он отвечает на вопрос «почему эти вкусы вместе» */
     .graph-link {
       display: grid;
       place-items: center;
-      width: 44px;
-      height: 44px;
+      width: 46px;
+      height: 46px;
       flex-shrink: 0;
       border: 1px solid var(--border);
-      border-radius: 50%;
       background: var(--surface);
       color: var(--muted);
       text-decoration: none;
     }
 
     .graph-link.active {
-      border-color: var(--text);
-      background: var(--text);
-      color: var(--surface);
+      border-color: var(--red);
+      background: var(--red);
+      color: var(--on-red);
     }
 
     @media (hover: hover) {
@@ -66,7 +71,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
     }
 
     .graph-link:active {
-      transform: scale(0.94);
+      background: var(--surface-hover);
     }
   `
 })

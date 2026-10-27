@@ -16,7 +16,7 @@
 .picker-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding: 14px;
 }
 
@@ -25,6 +25,8 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 
 app-flavor-picker {
@@ -37,8 +39,9 @@ app-flavor-picker {
   gap: 8px;
 }
 
+/* Банка - маленькая этикетка: название капителью, вкусы служебной строкой */
 .jar {
-  padding: 10px 10px 10px 14px;
+  padding: 11px 6px 11px 13px;
   cursor: pointer;
 }
 
@@ -51,19 +54,23 @@ app-flavor-picker {
 .jar-title {
   flex: 1;
   margin: 0;
-  font-size: 0.98rem;
-  font-weight: 600;
+  font-family: var(--font-cond);
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 
 .jar-actions {
   display: flex;
-  gap: 6px;
+  gap: 2px;
 }
 
 .brand {
   color: var(--muted);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .brand::after {
@@ -71,9 +78,9 @@ app-flavor-picker {
 }
 
 .jar-flavors {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 13.5px;
 }
 
 .flavor + .flavor::before {
@@ -87,7 +94,7 @@ app-flavor-picker {
 }
 
 .empty {
-  padding: 18px 6px;
+  padding: 22px 6px;
   text-align: center;
 }
 

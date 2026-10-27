@@ -1,47 +1,58 @@
+/* Мир «Этикетка»: матовый чернильный фон, бумажный текст, одна киноварь.
+   Киноварь всегда плашка под бумажным текстом. Четыре цвета уровня пары всегда точка или
+   отрезок: по месту и форме видно, что красный уровень и красная плашка говорят о разном. */
+
 :root {
-  --bg: #f3f4f6;
-  --surface: #ffffff;
-  --surface-hover: #eef0f3;
-  --border: #e2e5ea;
-  --border-strong: #8e95a3;
-  --text: #1c1f24;
-  --muted: #5d6470;
-  --radius: 14px;
-  --radius-sm: 10px;
-  --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 4px 12px rgb(16 24 40 / 4%);
-  --shadow-lifted: 0 2px 4px rgb(16 24 40 / 8%), 0 8px 18px rgb(16 24 40 / 6%);
-  /* Звёзды и рамки полей темнее остальных границ: по ним читается оценка и границы элементов управления */
-  --star-on: #c67c00;
-  --star-off: #828996;
-  --field-border: #828996;
-  --primary-hover: #000;
-  --level-red: #e03131;
-  --level-yellow: #f0a800;
-  --level-green: #2f9e44;
-  --level-blue: #3b5bdb;
-  color-scheme: light;
+  --bg: #0c0c0d;
+  --surface: #141416;
+  --surface-hover: #1e1e21;
+  --border: #2a2a2d;
+  --border-strong: #6b6b72;
+  --text: #f4f1ea;
+  --muted: #9a968e;
+  --red: #c8102e;
+  --on-red: #f4f1ea;
+  --radius: 0;
+  --radius-sm: 0;
+  --shadow: none;
+  --shadow-lifted: 0 -18px 50px rgb(0 0 0 / 55%);
+  --star-on: #e8b74a;
+  --star-off: #6b6b72;
+  --field-border: #6b6b72;
+  --primary-hover: #ffffff;
+  --level-red: #ff6b6b;
+  --level-yellow: #ffc940;
+  --level-green: #51cf66;
+  --level-blue: #7d9bff;
+  --font: "Fira Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-cond: "Fira Sans Condensed", "Fira Sans", system-ui, sans-serif;
+  /* Зерно печатной подложки. Шум серый, поэтому на чернильном фоне он чуть светлит,
+     а на бумажном чуть темнит, и одной картинки хватает обеим темам */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E");
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
+/* Светлая тема - та же этикетка, напечатанная на бумаге */
+@media (prefers-color-scheme: light) {
   :root {
-    --bg: #14161a;
-    --surface: #1c1f25;
-    --surface-hover: #262a32;
-    --border: #2d323b;
-    --border-strong: #6b7380;
-    --text: #e9ebef;
-    --muted: #9aa2b1;
-    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px rgb(0 0 0 / 28%);
-    --shadow-lifted: 0 2px 6px rgb(0 0 0 / 45%), 0 10px 22px rgb(0 0 0 / 32%);
-    --star-on: #ffc940;
-    --star-off: #6b7380;
-    --field-border: #6b7380;
-    --primary-hover: #fff;
-    --level-red: #ff6b6b;
-    --level-yellow: #ffc940;
-    --level-green: #51cf66;
-    --level-blue: #748ffc;
-    color-scheme: dark;
+    --bg: #eceae3;
+    --surface: #faf8f3;
+    --surface-hover: #e4e1d8;
+    --border: #d3cfc3;
+    --border-strong: #6f6a5e;
+    --text: #15150f;
+    --muted: #5c584e;
+    --red: #b50d27;
+    --shadow-lifted: 0 -18px 50px rgb(21 21 15 / 22%);
+    --star-on: #9a6b00;
+    --star-off: #6f6a5e;
+    --field-border: #6f6a5e;
+    --primary-hover: #000000;
+    --level-red: #d6212c;
+    --level-yellow: #a06800;
+    --level-green: #1f7a33;
+    --level-blue: #2f49b8;
+    color-scheme: light;
   }
 }
 
@@ -72,9 +83,10 @@ html, body {
 
 body {
   min-height: 100dvh;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--grain);
   color: var(--text);
-  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.45 var(--font);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
@@ -88,9 +100,29 @@ button, input {
   color: inherit;
 }
 
+/* Поверхности браузера тоже печатаются на этой бумаге */
+::selection {
+  background: var(--red);
+  color: var(--on-red);
+}
+
+html {
+  scrollbar-color: var(--border-strong) var(--bg);
+  scrollbar-width: thin;
+}
+
+a {
+  color: var(--text);
+  text-underline-offset: 3px;
+}
+
 :focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
+}
+
+input {
+  caret-color: var(--red);
 }
 
 /* Фон не должен прокручиваться под открытым модальным окном */
@@ -116,27 +148,42 @@ body:has(dialog[open]) {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 2px 2px 0 6px;
+  padding: 2px 2px 0 2px;
 }
 
+/* Служебная подпись этикетки: узкая капитель с разрядкой. Весь ранг держат
+   начертание, регистр и линейка, поэтому лестницы кеглей в макете нет */
 .section-label {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .card {
-  background: var(--surface);
+  background-color: var(--surface);
+  background-image: var(--grain);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-cond);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
@@ -148,20 +195,21 @@ body:has(dialog[open]) {
 
   .btn-primary:hover:not(:disabled) {
     background: var(--primary-hover);
+    border-color: var(--primary-hover);
   }
 }
 
 .btn:active:not(:disabled) {
   background: var(--surface-hover);
-  transform: scale(0.97);
 }
 
 .btn-primary:active:not(:disabled) {
   background: var(--primary-hover);
-  transform: scale(0.97);
+  border-color: var(--primary-hover);
 }
 
 .btn:disabled {
+  border-color: var(--border);
   color: var(--muted);
   cursor: default;
 }
@@ -169,13 +217,12 @@ body:has(dialog[open]) {
 .btn-primary {
   border-color: var(--text);
   background: var(--text);
-  color: var(--surface);
-  font-weight: 500;
+  color: var(--bg);
 }
 
 .btn-primary:disabled {
   border-color: var(--border);
-  background: var(--border);
+  background: transparent;
   color: var(--muted);
 }
 
@@ -212,46 +259,56 @@ body:has(dialog[open]) {
 
 .input:focus {
   background: var(--surface);
-  border-color: var(--border-strong);
+  border-color: var(--text);
 }
 
 .input::placeholder {
   color: var(--muted);
 }
 
+/* Ряд ячеек, разделённых волосяной линейкой. Выбранная ячейка выворачивается */
 .segmented {
   display: grid;
   grid-auto-flow: column;
   /* Дорожка auto даёт длинной подписи распереть контейнер за край экрана */
   grid-auto-columns: minmax(0, 1fr);
-  gap: 4px;
-  padding: 3px;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--border);
+  gap: 1px;
 }
 
 .segmented button, .segmented a {
   display: grid;
   place-items: center;
   min-height: 44px;
+  padding: 0 6px;
   border: 0;
-  border-radius: 8px;
-  background: transparent;
+  background: var(--surface);
   color: var(--muted);
-  font-size: 0.88rem;
+  font-family: var(--font-cond);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   text-decoration: none;
   cursor: pointer;
 }
 
 .segmented .active {
-  background: var(--surface);
-  color: var(--text);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgb(16 24 40 / 14%);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
 }
 
-.segmented button:active, .segmented a:active {
+.segmented button:not(.active):active, .segmented a:not(.active):active {
   background: var(--surface-hover);
+}
+
+@media (hover: hover) {
+  .segmented button:not(.active):hover, .segmented a:not(.active):hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
 }
 
 /* Двойной тап по кнопке не должен зумить страницу. d3 ставит на сам граф своё, более строгое значение */
@@ -261,28 +318,29 @@ html {
 
 .hint {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 13px;
   color: var(--muted);
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 9px;
+  height: 9px;
   flex-shrink: 0;
 }
 
+/* Счётчик: узкие табличные цифры в рамке */
 .badge {
   display: inline-grid;
   place-items: center;
-  min-width: 20px;
+  min-width: 22px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
-  background: var(--text);
-  color: var(--surface);
-  font-size: 0.75rem;
-  font-weight: 600;
+  border: 1px solid currentColor;
+  font-family: var(--font-cond);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }
 
 /* Подсказка у кнопки или пометки: открывается кликом, а при наличии мыши ещё и наведением.
@@ -298,12 +356,11 @@ html {
   left: 0;
   right: 0;
   z-index: 10;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--text);
-  color: var(--surface);
-  box-shadow: 0 8px 24px rgb(16 24 40 / 20%);
-  font-size: 0.85rem;
+  padding: 14px;
+  border: 1px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13.5px;
   line-height: 1.45;
 }
 
@@ -333,7 +390,7 @@ html {
 }
 
 .graph-container circle {
-  stroke: var(--surface);
+  stroke: var(--bg);
   stroke-width: 1.5;
   cursor: pointer;
 }
@@ -347,16 +404,18 @@ html {
 .graph-container .text-node.selected text {
   font-size: max(10px, calc(12px / var(--zoom, 1)));
   stroke-width: max(3px, calc(3px / var(--zoom, 1)));
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* Обводка цветом фона делает подпись читаемой поверх линий, paint-order кладёт её под буквы */
 .graph-container text {
   fill: var(--text);
-  stroke: var(--surface);
+  stroke: var(--bg);
   stroke-width: 3;
   stroke-linejoin: round;
   paint-order: stroke;
+  font-family: var(--font-cond);
+  font-weight: 600;
 }
 
 .graph-container .link {
@@ -387,7 +446,6 @@ html {
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 10px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -405,7 +463,6 @@ html {
 .icon-btn:active:not(:disabled) {
   background: var(--surface-hover);
   color: var(--text);
-  transform: scale(0.94);
 }
 
 .icon-btn:disabled {
@@ -486,7 +543,8 @@ html {
   max-height: 90dvh;
   padding: 0;
   border: 0;
-  border-radius: 20px 20px 0 0;
+  border-top: 1.5px solid var(--text);
+  border-radius: 0;
   margin: auto auto 0;
   background: var(--surface);
   color: var(--text);
@@ -494,7 +552,7 @@ html {
 }
 
 .dialog::backdrop {
-  background: rgb(16 24 40 / 45%);
+  background: rgb(5 5 6 / 62%);
 }
 
 /* Открывая форму, браузер ставит фокус на само окно, и рамка обводит весь лист */
@@ -504,17 +562,17 @@ html {
 
 /* Анимация только на появление: при закрытии форма пропадает из разметки сразу */
 .dialog[open] {
-  animation: sheet-in 0.2s ease-out;
+  animation: sheet-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dialog[open]::backdrop {
-  animation: fade-in 0.2s ease-out;
+  animation: fade-in 0.22s ease-out;
 }
 
 @keyframes sheet-in {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(18px);
   }
 }
 
@@ -534,21 +592,24 @@ html {
   align-items: center;
   gap: 8px;
   padding: 14px 10px 10px 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .dialog-head h2 {
   flex: 1;
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-family: var(--font-cond);
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .dialog-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 0 16px 16px;
+  gap: 16px;
+  padding: 16px;
 }
 
 .field {
@@ -574,11 +635,21 @@ html {
   gap: 8px;
 }
 
+/* Ошибка - киноварная плашка: в полутьме её видно раньше, чем прочитан текст */
 .problem {
+  align-self: center;
+  padding: 6px 12px;
+  background: var(--red);
+  color: var(--on-red);
+  font-family: var(--font-cond);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   text-align: center;
 }
 
-/* Вкус чипом: в форме микса, в форме банки и в карточках подбора */
+/* Вкус в рамке: в форме микса, в форме банки и в карточках подбора */
 .flavor-chips {
   display: flex;
   flex-wrap: wrap;
@@ -591,11 +662,11 @@ html {
   gap: 6px;
   min-height: 32px;
   padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: 13.5px;
   cursor: pointer;
 }
 
@@ -608,11 +679,12 @@ html {
 .pick-flavors {
   min-height: 32px;
   padding: 0 12px;
+  font-size: 12px;
 }
 
 @media (hover: hover) {
   .flavor-chip:hover {
-    background: var(--border);
+    background: var(--surface-hover);
   }
 }
 
@@ -631,8 +703,8 @@ html {
   .dialog {
     width: 520px;
     max-width: calc(100% - 32px);
-    border-radius: 20px;
     margin: auto;
+    border: 1.5px solid var(--text);
   }
 }
 
