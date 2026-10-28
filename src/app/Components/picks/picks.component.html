@@ -67,7 +67,7 @@
     </section>
 
     @if (!answered) {
-      <p class="hint ask">Выберите число банок, и подбор соберёт миксы. «Любое» значит, что число выберет сам подбор.</p>
+      <p class="hint ask">Выберите число банок, и подбор соберёт миксы. «Любое» соберёт группы для каждого числа банок.</p>
     }
 
     @if (calculating) {
@@ -87,12 +87,7 @@
                   <path d="M9 6l6 6-6 6"/>
                 </svg>
                 {{ shelfTitle(shelf) }}
-                @if (shelf.items.length) {
-                  <span class="badge {{ scoreTier(shelf.items[0].score) }}">{{ shelf.items[0].score }}</span>
-                }
-                @if (result.chosen === shelf.jarCount) {
-                  <span class="chosen">выбор подбора</span>
-                }
+                <span class="section-label shelf-count">{{ shelfCount(shelf) }}</span>
               </button>
             } @else {
               <span class="shelf-title">{{ shelfTitle(shelf) }}</span>
@@ -107,98 +102,100 @@
             }
 
             @for (item of shelf.items; track item.jarIds.join('+')) {
-              <article class="card pick">
-                <div class="pick-head">
-                  <div class="pick-title">
-                    <h3>
+              <!-- Обёртка сворачивает пластину, когда микс уходит в журнал или в скрытые -->
+              <div class="pick-slot" [class.leaving]="leaving === cardKey(item)">
+                <article class="card pick">
+                  <div class="pick-head">
+                    <h3 class="pick-title">
                       @for (component of item.components; track component.jar.id; let first = $first) {
                         <span class="part">@if (!first) {<span class="plus">+</span>}{{ componentTitle(component.jar) }}</span>
                       }
                     </h3>
-                    <p class="reason hint">{{ reason(item) }}</p>
-                  </div>
-                  <div class="score {{ scoreTier(item.score) }}"
-                       [attr.aria-label]="scoreWord(item.score) + ' микс, балл ' + item.score + ' из 100'">
-                    <span class="score-word">{{ scoreWord(item.score) }}</span>
-                    <span class="score-value">{{ item.score }}</span>
-                  </div>
-                </div>
-
-                <ul class="components">
-                  @for (component of item.components; track component.jar.id) {
-                    <li>
-                      <span class="share">{{ component.share }}%</span>
-                      <span class="role">{{ roleLabel(component.role) }}</span>
-                      @if (component.jar.brand) {
-                        <span class="brand">{{ component.jar.brand }}</span>
-                      }
-                      <span class="flavors">{{ component.jar.flavors.join(' + ') }}</span>
-                    </li>
-                  }
-                </ul>
-
-                <div class="pairs">
-                  @for (pair of item.pairs; track pair.a + pair.b) {
-                    <span class="pair" [class.one-sided]="pair.sides < 2" [title]="pairTitle(pair)">
-                      <span class="dot {{ levelClass(pair.level) }}"></span>{{ pair.a }} и {{ pair.b }}<span
-                        class="pair-level">{{ levelWord(pair.level) }}</span>
-                    </span>
-                  }
-                </div>
-
-                <div class="marks">
-                  @if (item.thinData || item.oneSided) {
-                    <div class="help data-help" [class.open]="dataHelp === cardKey(item)">
-                      <button type="button" class="mark data-btn" [attr.aria-expanded]="dataHelp === cardKey(item)"
-                              [attr.aria-describedby]="'data-help-' + cardKey(item)" (click)="toggleDataHelp(item)">
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+                    <!-- Штамп балла открывает разбор пар, который объясняет это число -->
+                    <button type="button" class="score {{ scoreTier(item.score) }}"
+                            [attr.aria-expanded]="details === cardKey(item)"
+                            [attr.aria-controls]="details === cardKey(item) ? 'details-' + cardKey(item) : null"
+                            [attr.aria-label]="scoreLabel(item)"
+                            (click)="toggleDetails(item)">
+                      <span class="score-word">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" aria-hidden="true">
                           <circle cx="12" cy="12" r="9"/>
                           <path d="M12 11.2v5"/>
                           <circle cx="12" cy="7.4" r="1" fill="currentColor" stroke="none"/>
                         </svg>
-                        неполные данные
-                      </button>
-                      <div class="help-bubble" role="tooltip" [id]="'data-help-' + cardKey(item)">
-                        <p>Балл собран из таблиц сочетаемости, и для этого микса данных в них меньше обычного.</p>
-                        <ul>
-                          @if (oneTablePairs(item)) {
-                            <li>Пар, которые описала только одна из двух таблиц: {{ oneTablePairs(item) }}</li>
-                          }
-                          @if (noTablePairs(item)) {
-                            <li>Пар, которых никто не измерял: {{ noTablePairs(item) }}</li>
-                          }
-                          @if (item.thinData) {
-                            <li>Своей таблицы нет у вкусов: {{ thinFlavors(item).join(', ') }}.
-                              Их пары видны из таблиц других продуктов</li>
-                          }
-                        </ul>
+                        {{ scoreWord(item.score) }}
+                      </span>
+                      <span class="score-value">{{ item.score }}</span>
+                    </button>
+                  </div>
+
+                  <ul class="components">
+                    @for (component of item.components; track component.jar.id) {
+                      <li>
+                        <span class="share">{{ component.share }}%</span>
+                        <span class="role">{{ roleLabel(component.role) }}</span>
+                        @if (component.jar.brand) {
+                          <span class="brand">{{ component.jar.brand }}</span>
+                        }
+                        <span class="flavors">{{ component.jar.flavors.join(' + ') }}</span>
+                      </li>
+                    }
+                  </ul>
+
+                  @if (details === cardKey(item)) {
+                    <div class="details" [id]="'details-' + cardKey(item)">
+                      <div class="pairs">
+                        @for (pair of item.pairs; track pair.a + pair.b) {
+                          <span class="pair" [class.one-sided]="pair.sides < 2" [title]="pairTitle(pair)">
+                            <span class="dot {{ levelClass(pair.level) }}"></span>{{ pair.a }} и {{ pair.b }}<span
+                              class="pair-level">{{ levelWord(pair.level) }}</span>
+                          </span>
+                        }
                       </div>
+
+                      @if (item.thinData || item.oneSided) {
+                        <div class="data-note">
+                          <span class="section-label">неполные данные</span>
+                          <p>Балл собран из таблиц сочетаемости, и для этого микса данных в них меньше обычного.</p>
+                          <ul>
+                            @if (oneTablePairs(item)) {
+                              <li>Пар, которые описала только одна из двух таблиц: {{ oneTablePairs(item) }}</li>
+                            }
+                            @if (noTablePairs(item)) {
+                              <li>Пар, которых никто не измерял: {{ noTablePairs(item) }}</li>
+                            }
+                            @if (item.thinData) {
+                              <li>Своей таблицы нет у вкусов: {{ thinFlavors(item).join(', ') }}.
+                                Их пары видны из таблиц других продуктов</li>
+                            }
+                          </ul>
+                        </div>
+                      }
                     </div>
                   }
-                  @if (item.planned) {
-                    <span class="mark planned">в планах</span>
-                  }
-                  @if (item.repeat) {
-                    <span class="mark">повторяет вкусы выше</span>
-                  }
-                </div>
 
-                <div class="pick-actions">
-                  <button type="button" class="icon-btn" title="Больше не предлагать"
-                          aria-label="Больше не предлагать этот микс" (click)="reject(item)">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M4 4l16 16"/>
-                      <path d="M10.6 10.7a2 2 0 002.8 2.8"/>
-                      <path d="M9.4 5.2A9 9 0 0112 5c5 0 9 4.5 9 7a11 11 0 01-2.4 3.3M6.4 6.8C4 8.3 3 10.4 3 12c0 2.5 4 7 9 7 1.2 0 2.4-.3 3.4-.8"/>
-                    </svg>
-                  </button>
-                  <button type="button" class="btn" [disabled]="item.planned"
-                          (click)="addToPlanned(item)">В планы</button>
-                  <button type="button" class="btn btn-primary" (click)="openTriedForm(item)">Попробовал</button>
-                </div>
-              </article>
+                  @if (item.repeat) {
+                    <div class="marks">
+                      <span class="mark">повторяет вкусы выше</span>
+                    </div>
+                  }
+
+                  <div class="pick-actions">
+                    <button type="button" class="icon-btn" title="Больше не предлагать"
+                            aria-label="Больше не предлагать этот микс" (click)="reject(item)">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 4l16 16"/>
+                        <path d="M10.6 10.7a2 2 0 002.8 2.8"/>
+                        <path d="M9.4 5.2A9 9 0 0112 5c5 0 9 4.5 9 7a11 11 0 01-2.4 3.3M6.4 6.8C4 8.3 3 10.4 3 12c0 2.5 4 7 9 7 1.2 0 2.4-.3 3.4-.8"/>
+                      </svg>
+                    </button>
+                    <button type="button" class="btn" (click)="addToPlanned(item)">В планы</button>
+                    <button type="button" class="btn btn-primary" (click)="openTriedForm(item)">Попробовал</button>
+                  </div>
+                </article>
+              </div>
             } @empty {
               <p class="hint empty-shelf">
                 @if (shelf.scored) {
@@ -217,8 +214,8 @@
                 Повторяют те же вкусы и не показаны: {{ shelf.hiddenRepeats }}
               </p>
             }
-            @if (shelf.skippedTried) {
-              <p class="hint skipped">Уже попробовано и скрыто: {{ shelf.skippedTried }}</p>
+            @if (shelf.skippedTried || shelf.skippedPlanned) {
+              <p class="hint skipped">Уже в журнале и скрыто: {{ journalSkipped(shelf) }}</p>
             }
             @if (shelf.skippedRejected) {
               <p class="hint skipped">

@@ -206,13 +206,14 @@ describe('recommend: журнал', () => {
     expect(result.shelves[0].skippedRejected).toBe(0);
   });
 
-  it('набор вкусов совпал с запланированным миксом => остаётся с planned true', () => {
-    const jars = jarsOf('вишня', 'мята');
+  it('набор вкусов совпал с запланированным миксом => в выдачу не попадает и считается в skippedPlanned', () => {
+    const jars = jarsOf('вишня', 'мята', 'лайм');
     const mixes = [mix('planned', undefined, 'вишня', 'мята')];
 
     const result = recommend(request(), context(jars, { mixes }));
 
-    expect(result.shelves[0].items[0].planned).toBe(true);
+    expect(flavorsOf(result.shelves[0].items)).not.toContain('вишня+мята');
+    expect(result.shelves[0].skippedPlanned).toBe(1);
   });
 
   it('usePersonal false => оценки не меняют балл', () => {
@@ -353,7 +354,6 @@ describe('recommend: число банок', () => {
     const result = recommend(request({ jarCount: 3 }), context(jars));
 
     expect(result.shelves.map(shelf => shelf.jarCount)).toEqual([3]);
-    expect(result.chosen).toBeUndefined();
   });
 
   it('jarCount any => полки от 2 до 4 при полке меньше 10 банок', () => {
@@ -373,33 +373,14 @@ describe('recommend: число банок', () => {
     expect(result.shelves.map(shelf => shelf.jarCount)).toEqual([2, 3, 4, 5]);
   });
 
-  it('лучшие карточки полок равны => выбирается большее число банок', () => {
-    const jars = jarsOf(...BIG_SHELF);
-
-    const result = recommend(request({ jarCount: 'any' }), context(jars));
-    const best = (count: number) => result.shelves.find(shelf => shelf.jarCount === count)!.items[0].score;
-
-    expect(result.chosen).toBeGreaterThan(2);
-    expect(best(result.chosen!)).toBeGreaterThanOrEqual(best(2) - 5);
-  });
-
-  it('полка с одной карточкой => выбирают ту, где карточек хватает', () => {
-    const jars = jarsOf('вишня', 'малина', 'клубника', 'мята');
-
-    const result = recommend(request({ jarCount: 'any' }), context(jars));
-    const chosenShelf = result.shelves.find(shelf => shelf.jarCount === result.chosen);
-
-    expect(chosenShelf!.items.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('миксы из трёх банок не собираются => chosen это два', () => {
+  it('миксы из трёх банок не собираются => полка на три банки пустая', () => {
     const jars = jarsOf('вишня', 'малина', 'мята');
     const level = (a: string, b: string): PairLevel =>
       pairKey(a, b) === pairKey('вишня', 'малина') ? 'pale' : 'red';
 
     const result = recommend(request({ jarCount: 'any' }), context(jars, { level }));
 
-    expect(result.chosen).toBe(2);
+    expect(result.shelves.find(shelf => shelf.jarCount === 3)!.items).toEqual([]);
   });
 });
 

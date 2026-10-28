@@ -6,6 +6,7 @@ import { FlavorGroup, nameConflict } from '../../Core/library/flavor-group';
 import { addableSuggestions, Suggestion, suggestGroups } from '../../Core/library/group-suggestions';
 import { newId } from '../../Core/library/id';
 import { LibraryStore } from '../../Core/library/library-store';
+import { plural, PluralForms } from '../../Core/text/plural';
 import { FlavorPickerComponent } from '../flavor-picker/flavor-picker.component';
 
 type Tab = 'suggestions' | 'mine';
@@ -18,6 +19,7 @@ interface Draft {
 }
 
 const MIN_FLAVORS = 2;
+const GROUP_FORMS: PluralForms = ['группу', 'группы', 'групп'];
 
 @Component({
   selector: 'app-flavor-groups',
@@ -106,12 +108,8 @@ export class FlavorGroupsComponent {
 
   addLabel(): string {
     const count = this.addCount;
-    const tail = count % 10;
-    const teen = count % 100;
-    if (tail === 1 && teen !== 11) {
-      return `Добавить ${count} группу`;
-    }
-    return tail > 1 && tail < 5 && (teen < 12 || teen > 14) ? `Добавить ${count} группы` : `Добавить ${count} групп`;
+
+    return `Добавить ${count} ${plural(count, GROUP_FORMS)}`;
   }
 
   addChecked(): void {

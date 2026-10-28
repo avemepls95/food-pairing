@@ -28,9 +28,6 @@ type LabelSelection = d3.Selection<SVGGElement, Node, SVGGElement, unknown>;
 
 const SETTINGS_KEY = 'food-pairing.graph-settings';
 
-/** Ширина, на которой панель уходит в столбец слева и ответ встаёт рядом с ней */
-const SIDE_PANEL = '(min-width: 760px), (orientation: landscape) and (min-width: 560px)';
-
 @Component({
   selector: 'app-graph',
   imports: [FlavorPickerComponent, NavComponent, PairListComponent],
@@ -49,7 +46,6 @@ export class GraphComponent implements OnInit, OnDestroy {
   private redrawTimeout: ReturnType<typeof setTimeout> | undefined;
   private laidOutOnce = false;
   private destroyed = false;
-  private sidePanel = matchMedia(SIDE_PANEL);
 
   filtersOpen = true;
   fullscreen = false;
@@ -60,7 +56,7 @@ export class GraphComponent implements OnInit, OnDestroy {
   canShowHidden = false;
   canRelaxMode = false;
   mode: Mode = 'extended';
-  view: View = 'list';
+  view: View = 'graph';
   graph: { nodes: Node[]; links: GraphLink[] } = { nodes: [], links: [] };
   filteredLinks: GraphLink[] = [];
   sections: PairSection[] = [];
@@ -84,9 +80,6 @@ export class GraphComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     this.restoreSettings();
-    // На экране телефона 190 узлов вписываются масштабом 0.2, подписи становятся нечитаемы,
-    // поэтому там тот же набор связей открывается списком
-    this.view = this.sidePanel.matches ? 'graph' : 'list';
     await this.loadData();
   }
 
@@ -254,34 +247,16 @@ export class GraphComponent implements OnInit, OnDestroy {
   }
 
   toggleProductSelection(product: string): void {
-    const wasEmpty = !this.selectedProducts.length;
     this.selectedProducts = this.selectedProducts.includes(product)
       ? this.selectedProducts.filter(p => p !== product)
       : [...this.selectedProducts, product];
 
-    this.syncFilters(wasEmpty);
     this.applyFilter();
   }
 
   clearSelection(): void {
     this.selectedProducts = [];
-    this.syncFilters(false);
     this.applyFilter();
-  }
-
-  /**
-   * Без столбца сбоку панель занимает весь экран. После первого выбора она уступает место
-   * ответу, а на пустом выборе возвращается к поиску.
-   */
-  private syncFilters(wasEmpty: boolean): void {
-    if (this.sidePanel.matches) {
-      return;
-    }
-    if (!this.selectedProducts.length) {
-      this.filtersOpen = true;
-    } else if (wasEmpty) {
-      this.filtersOpen = false;
-    }
   }
 
   // Выбранные цвета и режим переживают перезагрузку, выбранные продукты - нет

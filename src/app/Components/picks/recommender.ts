@@ -230,7 +230,6 @@ export function scoreMix(jars: Jar[], ctx: ScoreContext): Recommendation | undef
     personal,
     thinData: flavors.some(flavor => !ctx.hasTable(flavor)),
     oneSided: pairs.filter(pair => pair.sides < 2).length,
-    planned: false,
     repeat: false
   };
 }
@@ -239,13 +238,10 @@ const RISK_ORDER: Risk[] = ['safe', 'balanced', 'bold'];
 const DEFAULT_LIMIT = 6;
 /** Сколько лучших по сочетаемости комбинаций доходит до полного балла */
 const TOP_CANDIDATES = 200;
-/** Сколько карточек смотрим, выбирая число банок в режиме "Неважно" */
-const CHOSEN_SAMPLE = 3;
 /** Ниже этого числа выдача выглядит пустой, поэтому повторы всё же идут в дело */
 const MIN_CARDS = 3;
 /** Карточек на странице выдачи: от него считается, как часто вкус может повторяться */
 const CARDS_PER_PAGE = 6;
-const CHOSEN_GAP = 5;
 
 /** Ключ набора вкусов: по нему миксы сравниваются с журналом и со списком отклонённых */
 export const flavorKey = (flavors: string[]) => [...flavors].sort().join('+');
@@ -382,12 +378,13 @@ function searchMixes(jarCount: number, gate: number, requireUnknown: boolean, ar
 }
 
 /**
- * Карточки полки: без уже попробованного, без почти одинаковых миксов и без вкуса,
+ * Карточки полки: без того, что уже лежит в журнале, без почти одинаковых миксов и без вкуса,
  * занявшего больше половины выдачи. Правила снимаются, если иначе карточек не хватает.
  */
 function selectItems(candidates: Recommendation[], jarCount: number, limit: number, aromas: FlavorTest[],
   ctx: PicksContext):
-  { items: Recommendation[]; skippedTried: number; skippedRejected: number; hiddenRepeats: number } {
+  { items: Recommendation[]; skippedTried: number; skippedPlanned: number; skippedRejected: number;
+    hiddenRepeats: number } {
   // Сравниваем миксы по известным вкусам: в банке может стоять вкус, пропавший из справочника,
   // а в баллах такого вкуса нет
   const keysOf = (category: Mix['category']) => new Set(ctx.mixes
@@ -398,6 +395,7 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
 
   const rejectedKeys = new Set(ctx.rejected);
   let skippedTried = 0;
+  let skippedPlanned = 0;
   let skippedRejected = 0;
   const pool: Recommendation[] = [];
   candidates.forEach(item => {
@@ -410,7 +408,11 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
       skippedTried++;
       return;
     }
-    pool.push({ ...item, planned: plannedKeys.has(key) });
+    if (plannedKeys.has(key)) {
+      skippedPlanned++;
+      return;
+    }
+    pool.push(item);
   });
 
   // Вкус вроде сыра сочетается с доброй половиной справочника и без ограничения занимает
@@ -462,7 +464,7 @@ function selectItems(candidates: Recommendation[], jarCount: number, limit: numb
     .map(item => ({ ...item, repeat: true }));
   const items = picked.concat(tail);
 
-  return { items, skippedTried, skippedRejected, hiddenRepeats: hidden.length - tail.length };
+  return { items, skippedTried, skippedPlanned, skippedRejected, hiddenRepeats: hidden.length - tail.length };
 }
 
 /**
@@ -507,7 +509,7 @@ function buildShelf(jarCount: number, risk: Risk, limit: number, aromas: FlavorT
     found.sort((a, b) => b.score - a.score);
     scored += search.scored;
     used = current;
-    // Считаем карточки, а не кандидатов: попробованные и скрытые уходят из выдачи,
+    // Считаем карточки, а не кандидатов: журнал и скрытые уходят из выдачи,
     // и без ослабления полка осталась бы пустой
     selected = selectItems(found, jarCount, limit, aromas, ctx);
     if (selected.items.length >= 3) {
@@ -515,24 +517,12 @@ function buildShelf(jarCount: number, risk: Risk, limit: number, aromas: FlavorT
     }
   }
 
-  const { items, skippedTried, skippedRejected, hiddenRepeats } = selected;
+  const { items, skippedTried, skippedPlanned, skippedRejected, hiddenRepeats } = selected;
 
-  return { jarCount, items, risk: used, relaxed: used !== risk, skippedTried, skippedRejected, hiddenRepeats, scored };
-}
-
-/** Наибольшее число банок, которое почти не проигрывает лучшему */
-function chooseCount(shelves: PickShelf[]): number | undefined {
-  const withItems = shelves.filter(shelf => shelf.items.length);
-  // Полка из одной карточки выбором быть не должна, пока есть полка с нормальной выдачей
-  const enough = withItems.filter(shelf => shelf.items.length >= CHOSEN_SAMPLE);
-  const filled = enough.length ? enough : withItems;
-  if (!filled.length) {
-    return undefined;
-  }
-  const topScore = (shelf: PickShelf) => shelf.items[0].score;
-  const best = Math.max(...filled.map(topScore));
-
-  return filled.filter(shelf => topScore(shelf) >= best - CHOSEN_GAP).map(shelf => shelf.jarCount).at(-1);
+  return {
+    jarCount, items, risk: used, relaxed: used !== risk,
+    skippedTried, skippedPlanned, skippedRejected, hiddenRepeats, scored
+  };
 }
 
 export function recommend(request: PicksRequest, ctx: PicksContext): PicksResult {
@@ -549,5 +539,5 @@ export function recommend(request: PicksRequest, ctx: PicksContext): PicksResult
     .filter(jarCount => jarCount <= ctx.jars.length)
     .map(jarCount => buildShelf(jarCount, request.risk, limit, aromas, ctx, scoreCtx));
 
-  return { shelves, chosen: request.jarCount === 'any' ? chooseCount(shelves) : undefined };
+  return { shelves };
 }

@@ -77,10 +77,15 @@
   }
 }
 
+/* Движение снимается целиком: полоса пересчёта остаётся полной, пластина и значок стоят на месте */
 @media (prefers-reduced-motion: reduce) {
   .calculating::after {
     animation: none;
     width: 100%;
+  }
+
+  .pick-slot, .score-word svg {
+    transition: none;
   }
 }
 
@@ -133,23 +138,8 @@
   cursor: pointer;
 }
 
-/* Лучший балл полки печатается той же ступенью, что и плашка микса */
-.shelf-toggle .badge {
-  height: 22px;
-}
-
-.shelf-toggle .badge.top {
-  border: 0;
-  background: var(--red);
-  color: var(--on-red);
-}
-
-.shelf-toggle .badge.mid {
-  color: var(--text);
-}
-
-.shelf-toggle .badge.low {
-  color: var(--muted);
+.shelf-count {
+  font-variant-numeric: tabular-nums;
 }
 
 .chevron {
@@ -160,13 +150,24 @@
   transform: rotate(90deg);
 }
 
-.chosen {
-  padding: 2px 7px;
-  border: 1px solid var(--border-strong);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+/* Уход пластины из выдачи. Высота складывается, пластина гаснет */
+.pick-slot {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.24s, opacity 0.2s, margin-bottom 0.24s;
+}
+
+.pick-slot.leaving {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  /* Промежуток списка уходит вместе с пластиной */
+  margin-bottom: -8px;
+  pointer-events: none;
+}
+
+.pick-slot.leaving > .pick {
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Пластина этикетки: рамка в полтора пикселя, киноварная плашка балла в углу,
@@ -187,11 +188,8 @@
 .pick-title {
   flex: 1;
   min-width: 0;
-  padding: 13px 0 12px 13px;
-}
-
-.pick-title h3 {
   margin: 0;
+  padding: 13px 0 12px 13px;
   font-family: var(--font-cond);
   /* Имя растёт вместе с пластиной: на телефоне 28 px, на широком экране до 50 */
   font-size: clamp(28px, 5.4vw, 50px);
@@ -214,12 +212,9 @@
   content: " ";
 }
 
-.reason {
-  margin: 8px 0 0;
-}
-
 /* Три печатных штампа сорта: сплошная киноварь, рамка в рамке, одиночный контур.
-   Бумажная заливка штампу не достаётся - её носит главное действие пластины */
+   Бумажная заливка штампу не достаётся - её носит главное действие пластины.
+   Штамп это ещё и кнопка разбора пар, поэтому у него нет рамки и фона браузера */
 .score {
   display: flex;
   flex-direction: column;
@@ -227,7 +222,11 @@
   flex-shrink: 0;
   gap: 1px;
   padding: 7px 11px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .score.top {
@@ -249,11 +248,29 @@
 }
 
 .score-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--font-cond);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+/* Нажим на значок такой же, как у звезды оценки, и одинаков на всех трёх штампах */
+.score-word svg {
+  transition: transform 0.12s;
+}
+
+@media (hover: hover) {
+  .score:hover .score-word svg {
+    transform: scale(1.12);
+  }
+}
+
+.score:active .score-word svg {
+  transform: scale(0.92);
 }
 
 .score-value {
@@ -307,7 +324,7 @@
   color: var(--muted);
 }
 
-/* Разбор пар в подвале пластины */
+/* Разбор пар и пометка о данных раскрываются штампом балла */
 .pairs {
   display: flex;
   flex-wrap: wrap;
@@ -351,18 +368,35 @@
   border-color: var(--border-strong);
 }
 
-/* Родитель для пузырька подсказки: он занимает всю ширину карточки */
+.data-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 13px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.data-note p {
+  margin: 0;
+}
+
+.data-note ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.data-note li + li {
+  margin-top: 4px;
+}
+
 .marks {
-  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 0 13px 10px;
-}
-
-.marks:empty {
-  display: none;
+  padding: 10px 13px 0;
 }
 
 .mark {
@@ -376,49 +410,12 @@
   text-transform: uppercase;
 }
 
-.mark.planned {
-  border-style: solid;
-  border-color: var(--star-on);
-  color: var(--star-on);
-}
-
-/* Пометка про данные открывает подсказку, поэтому она кнопка */
-.data-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  background: none;
-  font: inherit;
-  font-family: var(--font-cond);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.help-bubble ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-}
-
-.help-bubble li + li {
-  margin-top: 4px;
-}
-
-@media (hover: hover) {
-  .data-btn:hover {
-    color: var(--text);
-  }
-}
-
 /* «Больше не предлагать» отделено пустотой: мимо соседней кнопки пальцем не промахнуться */
 .pick-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 13px 13px;
+  padding: 10px 13px 13px;
 }
 
 .pick-actions .icon-btn {

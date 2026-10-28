@@ -56,8 +56,6 @@ export interface Recommendation {
   thinData: boolean;
   /** Сколько пар описаны только одной стороной */
   oneSided: number;
-  /** Такой же набор вкусов уже лежит в планах */
-  planned: boolean;
   /** Карточка повторяет вкусы тех, что выше, и добрана, чтобы выдача не выродилась */
   repeat: boolean;
 }
@@ -71,6 +69,8 @@ export interface PickShelf {
   relaxed: boolean;
   /** Сколько комбинаций выброшено как уже попробованные */
   skippedTried: number;
+  /** Сколько комбинаций выброшено, потому что уже лежат в планах */
+  skippedPlanned: number;
   /** Сколько комбинаций скрыто самим пользователем */
   skippedRejected: number;
   /** Сколько миксов не показано, потому что повторяют уже показанные вкусы */
@@ -97,6 +97,4 @@ export interface PicksContext extends ScoreContext {
 
 export interface PicksResult {
   shelves: PickShelf[];
-  /** Какое число банок алгоритм выбрал сам */
-  chosen: number | undefined;
 }

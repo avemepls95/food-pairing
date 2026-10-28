@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, HostListener, inject, OnInit, viewChild } from '@angular/core';
+import { Component, HostListener, inject, OnDestroy, OnInit, viewChild } from '@angular/core';
 import { Aroma, aromaTest } from '../../Core/graph/aroma';
 import { PairLevel } from '../../Core/graph/graph-data';
 import { GraphDataService } from '../../Core/graph/graph-data.service';
@@ -7,7 +7,8 @@ import { buildGrouping, Grouping } from '../../Core/library/flavor-group';
 import { newId } from '../../Core/library/id';
 import { Jar } from '../../Core/library/jar';
 import { LibraryStore } from '../../Core/library/library-store';
-import { Mix, MixCategory, MixItem } from '../../Core/library/mix';
+import { Mix, MixItem } from '../../Core/library/mix';
+import { plural, PluralForms } from '../../Core/text/plural';
 import { AromaFilterComponent } from '../aroma-filter/aroma-filter.component';
 import { readAromas, writeAromas } from '../aroma-filter/aroma-storage';
 import { FlavorGroupsComponent } from '../flavor-groups/flavor-groups.component';
@@ -20,6 +21,8 @@ import { recommend } from './recommender';
 const SETTINGS_KEY = 'food-pairing.picks-settings';
 const AROMA_KEY = 'food-pairing.picks-aroma';
 const PAGE_SIZE = 6;
+/** Пластина успевает свернуться до пересчёта выдачи. Столько же длится переход .pick-slot в стилях */
+const HIDE_MS = 240;
 
 /** Сила пары словом: цветную точку расшифровывает только легенда на вкладке «Граф» */
 const LEVEL_WORDS: Record<PairLevel, string> = {
@@ -31,11 +34,14 @@ const LEVEL_WORDS: Record<PairLevel, string> = {
   unknown: 'нет данных'
 };
 
+const MIX_FORMS: PluralForms = ['микс', 'микса', 'миксов'];
+
 interface Settings {
   jarCount: number | 'any';
   risk: Risk;
   usePersonal: boolean;
   answered: boolean;
+  openShelf?: number;
 }
 
 @Component({
@@ -44,13 +50,14 @@ interface Settings {
   templateUrl: './picks.component.html',
   styleUrl: './picks.component.css'
 })
-export class PicksComponent implements OnInit {
+export class PicksComponent implements OnInit, OnDestroy {
   private store = inject(LibraryStore);
   private data = inject(GraphDataService);
   private form = viewChild.required(MixFormComponent);
   private groupsForm = viewChild.required(FlavorGroupsComponent);
   private knows = (flavor: string) => !!this.data.node(flavor);
   private grouping: Grouping = buildGrouping([], () => false);
+  private hideTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly jarCounts: (number | 'any')[] = [2, 3, 4, 5, 'any'];
   // Подписи короткие: втроём они делят ширину экрана, а смысл раскрывает подсказка под ними
@@ -86,8 +93,12 @@ export class PicksComponent implements OnInit {
   loadError = '';
   expanded = new Set<number>();
   moreOpen = false;
-  /** Ключ карточки с открытой подсказкой про данные */
-  dataHelp = '';
+  /** Ключ карточки с открытым разбором пар */
+  details = '';
+  /** Ключ карточки, которая сворачивается перед уходом из выдачи */
+  leaving = '';
+  /** Группа, с которой страница откроется в следующий раз */
+  openShelf: number | undefined;
 
   async ngOnInit(): Promise<void> {
     try {
@@ -107,6 +118,10 @@ export class PicksComponent implements OnInit {
     if (this.answered) {
       this.calculate();
     }
+  }
+
+  ngOnDestroy(): void {
+    clearTimeout(this.hideTimer);
   }
 
   get enoughJars(): boolean {
@@ -176,31 +191,34 @@ export class PicksComponent implements OnInit {
   toggleShelf(shelf: PickShelf): void {
     if (this.expanded.has(shelf.jarCount)) {
       this.expanded.delete(shelf.jarCount);
-    } else {
-      this.expanded.add(shelf.jarCount);
+      return;
     }
+    this.expanded.add(shelf.jarCount);
+    this.openShelf = shelf.jarCount;
+    this.saveSettings();
   }
 
   shelfTitle(shelf: PickShelf): string {
     return `Из ${shelf.jarCount} банок`;
   }
 
-  /** Почему микс оказался в выдаче */
-  reason(item: Recommendation): string {
+  /** Число миксов в группе. Слово рядом с числом отличает счёт от балла */
+  shelfCount(shelf: PickShelf): string {
+    const count = shelf.items.length;
+
+    return count ? `${count} ${plural(count, MIX_FORMS)}` : 'нет миксов';
+  }
+
+  /** Миксы группы, которые уже записаны в журнал и поэтому не предлагаются */
+  journalSkipped(shelf: PickShelf): string {
     const parts: string[] = [];
-    const strongest = [...item.pairs].sort((a, b) => b.weight - a.weight)[0];
-    if (item.pairs.every(pair => pair.level === 'red')) {
-      parts.push('все пары красные');
-    } else if (strongest?.level === 'red') {
-      parts.push(`красная пара: ${strongest.a} и ${strongest.b}`);
+    if (shelf.skippedTried) {
+      parts.push(`попробовано ${shelf.skippedTried}`);
     }
-    const accent = item.components.find(component => component.role === 'accent');
-    if (accent) {
-      parts.push(`${accent.jar.flavors.join(' и ')} даёт акцент`);
+    if (shelf.skippedPlanned) {
+      parts.push(`в планах ${shelf.skippedPlanned}`);
     }
-    if (item.personal > 0) {
-      parts.push('вкусы из миксов с высокой оценкой');
-    }
+
     return parts.join(', ');
   }
 
@@ -231,6 +249,13 @@ export class PicksComponent implements OnInit {
     return score >= 44 ? 'так себе' : 'рискованный';
   }
 
+  /** Что читает скринридер на штампе: сорт, балл и действие кнопки */
+  scoreLabel(item: Recommendation): string {
+    const action = this.details === this.cardKey(item) ? 'Скрыть разбор пар' : 'Показать разбор пар';
+
+    return `${this.scoreWord(item.score)} микс, балл ${item.score} из 100. ${action}`;
+  }
+
   /** Ступень балла для плашки: сплошной штамп получает только высший сорт */
   scoreTier(score: number): string {
     if (score >= 75) {
@@ -245,7 +270,13 @@ export class PicksComponent implements OnInit {
   }
 
   addToPlanned(item: Recommendation): void {
-    this.saveMix(item, 'planned');
+    this.store.saveMix({
+      id: newId(),
+      items: this.toItems(item),
+      category: 'planned',
+      updatedAt: new Date().toISOString()
+    });
+    this.hide(this.cardKey(item), () => this.calculate(true));
   }
 
   openGroups(): void {
@@ -273,21 +304,15 @@ export class PicksComponent implements OnInit {
     return item.jarIds.join('+');
   }
 
-  toggleDataHelp(item: Recommendation): void {
+  /** Разбор пар раскрыт у одной пластины, чтобы выдача оставалась короткой */
+  toggleDetails(item: Recommendation): void {
     const key = this.cardKey(item);
-    this.dataHelp = this.dataHelp === key ? '' : key;
-  }
-
-  @HostListener('document:click', ['$event'])
-  closeDataHelp(event: MouseEvent): void {
-    if (this.dataHelp && !(event.target as Element).closest('.data-help')) {
-      this.dataHelp = '';
-    }
+    this.details = this.details === key ? '' : key;
   }
 
   @HostListener('document:keydown.escape')
   closeOnEscape(): void {
-    this.dataHelp = '';
+    this.details = '';
   }
 
   /** Вкусы микса без своей таблицы. У группы таблица есть, если она есть хотя бы у одного её вкуса */
@@ -306,7 +331,7 @@ export class PicksComponent implements OnInit {
   /** Больше не предлагать этот набор вкусов. Запрет записан вкусами банок, без групп */
   reject(item: Recommendation): void {
     this.store.reject(shelfFlavorKey(item.jarIds, this.jars, this.knows));
-    this.calculate(true);
+    this.hide(this.cardKey(item), () => this.calculate(true));
   }
 
   restoreRejected(): void {
@@ -326,17 +351,18 @@ export class PicksComponent implements OnInit {
   onSaved(mix: Mix): void {
     this.store.saveMix(mix);
     this.hasRatings = this.store.mixes().some(saved => saved.category === 'tried' && !!saved.rating);
-    this.calculate();
+    // Записанный микс уходит из выдачи, и его пластина сворачивается так же, как от «В планы»
+    this.hide(mix.items.map(item => item.jarId).join('+'), () => this.calculate(true));
   }
 
-  private saveMix(item: Recommendation, category: MixCategory): void {
-    this.store.saveMix({
-      id: newId(),
-      items: this.toItems(item),
-      category,
-      updatedAt: new Date().toISOString()
-    });
-    this.calculate();
+  /** Пластина сворачивается, и только потом выдача пересчитывается без неё */
+  private hide(key: string, apply: () => void): void {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      apply();
+      return;
+    }
+    this.leaving = key;
+    this.hideTimer = setTimeout(apply, HIDE_MS);
   }
 
   private toItems(item: Recommendation): MixItem[] {
@@ -356,6 +382,7 @@ export class PicksComponent implements OnInit {
   private calculate(keepExpanded = false): void {
     if (!this.enoughJars) {
       this.result = undefined;
+      this.leaving = '';
       return;
     }
     this.calculating = true;
@@ -379,11 +406,20 @@ export class PicksComponent implements OnInit {
         hasTable: flavor => this.data.hasTable(flavor)
       }, grouping));
       this.result = withShelfJars(result, this.jars);
+      // Свёрнутую пластину отпускаем вместе с новой выдачей, в которой её уже нет
+      this.leaving = '';
       if (!keepExpanded) {
-        this.expanded = new Set(result.chosen ? [result.chosen] : []);
+        this.expanded = new Set(this.shelfToOpen(result.shelves));
       }
       this.calculating = false;
     });
+  }
+
+  /** Открытой остаётся группа, которую пользователь открывал последней, иначе первая */
+  private shelfToOpen(shelves: PickShelf[]): number[] {
+    const shelf = shelves.find(current => current.jarCount === this.openShelf) ?? shelves[0];
+
+    return shelf ? [shelf.jarCount] : [];
   }
 
   private reloadGroups(): void {
@@ -408,6 +444,9 @@ export class PicksComponent implements OnInit {
       }
       this.usePersonal = settings.usePersonal !== false;
       this.answered = !!settings.answered;
+      if (typeof settings.openShelf === 'number') {
+        this.openShelf = settings.openShelf;
+      }
     } catch {
       // настройки необязательные, работаем со значениями по умолчанию
     }
@@ -419,7 +458,8 @@ export class PicksComponent implements OnInit {
         jarCount: this.jarCount,
         risk: this.risk,
         usePersonal: this.usePersonal,
-        answered: this.answered
+        answered: this.answered,
+        openShelf: this.openShelf
       } satisfies Settings));
     } catch {
       // не сохранили - не страшно
